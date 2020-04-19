@@ -6,9 +6,11 @@ use std::sync::{Mutex, Arc};
 use std::net::{TcpStream, Shutdown};
 use bytes::{BytesMut, BufMut};
 use crc::{crc32, Hasher32};
+use redis::Commands;
 use crate::common;
 use crate::decoder;
 use crate::encoder;
+use crate::base_messages;
 
 static XML: &'static str = "<?xml version=\"1.0\"?>
 <cross-domain-policy>
@@ -60,13 +62,7 @@ impl Client {
                 println!("type - {}", type_);
                 println!("msg - {:?}", msg);
                 if type_ == 1 {
-                    //self.auth(msg);
-                    let mut v: Vec<common::Value> = Vec::new();
-                    v.push(common::Value::String(String::from("123")));
-                    v.push(common::Value::Boolean(true));
-                    v.push(common::Value::Boolean(false));
-                    v.push(common::Value::Boolean(false));
-                    self.send(v, 1);
+                    self.auth(msg);
                 }
             }
             buffer = [0 as u8; 1024];
@@ -95,31 +91,43 @@ impl Client {
         buf.extend(&data[..]);
         self.stream.write(&buf[..]).unwrap();
     }
-    /*
-    fn auth(&mut self, msg: Vec<common::Value>) {
-        let mut uid = msg[0].get_string().unwrap();
-        let mut token = msg[0].get_string().unwrap();
+
+    fn auth(&mut self, msg: &Vec<common::Value>) {
+        let uid = msg[1].get_string().unwrap();
+        let token = msg[2].get_string().unwrap();
         let mut con = self.redis.get_connection().unwrap();
         match con.get(format!("auth:{}", token)) {
-            Some(value) => {
-                if uid != value {
-                    msg = base_messages::auth_fail();
+            Ok(value) => {
+                let real_uid: String = value;
+                if uid != real_uid {
+                    let msg = base_messages::wrong_pass();
+                    self.send(msg, 2);
+                    self.stream.shutdown(Shutdown::Both).expect("Shutdown failed!");
                     return;
                 }
+                self.uid = real_uid.clone();
+                let mut v: Vec<common::Value> = Vec::new();
+                v.push(common::Value::String(real_uid));
+                v.push(common::Value::Boolean(true));
+                v.push(common::Value::Boolean(false));
+                v.push(common::Value::Boolean(false));
+                self.send(v, 1);
             }
-            None {
-                msg = base_messages::auth_fail();
+            Err(_) => {
+                let msg = base_messages::wrong_pass();
+                self.send(msg, 2);
+                self.stream.shutdown(Shutdown::Both).expect("Shutdown failed!");
                 return;
             }
         }
     }
-    */
+
     pub fn new(stream: TcpStream, online: Arc<Mutex<HashMap<String, Client>>>) -> Client {
         Client {
             stream: stream,
             uid: String::from("0"),
             online: online,
-            redis: redis::Client::open("redis://127.0.0.1./").unwrap(),
+            redis: redis::Client::open("redis://127.0.0.1/").unwrap(),
             checksummed: false,
             compressed: false,
             encrypted: false
