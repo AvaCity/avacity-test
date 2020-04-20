@@ -11,6 +11,7 @@ use crate::common;
 use crate::decoder;
 use crate::encoder;
 use crate::base_messages;
+use crate::modules::Base;
 
 static XML: &'static str = "<?xml version=\"1.0\"?>
 <cross-domain-policy>
@@ -22,6 +23,7 @@ pub struct Client {
     pub stream: TcpStream,
     pub uid: String,
     pub online: Arc<Mutex<HashMap<String, Client>>>,
+    modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>,
     redis: redis::Client,
     pub encrypted: bool,
     pub compressed: bool,
@@ -63,6 +65,18 @@ impl Client {
                 println!("msg - {:?}", msg);
                 if type_ == 1 {
                     self.auth(msg);
+                }
+                else if type_ == 34 {
+                    let tmp = msg[1].get_string().unwrap();
+                    let splitted: Vec<&str> = tmp.split(".").collect();
+                    let module_name = splitted[0].to_owned();
+                    let lock = self.modules.lock().unwrap();
+                    if !lock.contains_key(&module_name) {
+                        println!("Command {} not found", tmp);
+                        continue;
+                    }
+                    let module = lock.get(&module_name).expect("Impossible");
+                    module.handle(&self, msg);
                 }
             }
             buffer = [0 as u8; 1024];
@@ -122,11 +136,13 @@ impl Client {
         }
     }
 
-    pub fn new(stream: TcpStream, online: Arc<Mutex<HashMap<String, Client>>>) -> Client {
+    pub fn new(stream: TcpStream, online: Arc<Mutex<HashMap<String, Client>>>,
+               modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>) -> Client {
         Client {
             stream: stream,
             uid: String::from("0"),
             online: online,
+            modules: modules,
             redis: redis::Client::open("redis://127.0.0.1/").unwrap(),
             checksummed: false,
             compressed: false,

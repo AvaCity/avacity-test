@@ -3,9 +3,11 @@ use std::collections::HashMap;
 use std::net::TcpListener;
 use std::thread;
 use crate::client;
+use crate::modules::{Base, house};
 
 pub struct Server {
     pub online: Arc<Mutex<HashMap<String, client::Client>>>,
+    pub modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>
 }
 
 impl Server {
@@ -14,16 +16,24 @@ impl Server {
         for stream in listener.incoming() {
             println!("new connection");
             let online = Arc::clone(&self.online);
-            thread::spawn(|| {
-                let mut client = client::Client::new(stream.unwrap(), online);
+            let modules = Arc::clone(&self.modules);
+            thread::spawn(move || {
+                let mut client = client::Client::new(stream.unwrap(), online, modules);
                 client.handle();
             });
         }
     }
 
     pub fn new() -> Server {
+        let loaded_modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>> = Arc::new(Mutex::new(HashMap::new()));
+        let mut lock = loaded_modules.lock().unwrap();
+        let online = Arc::new(Mutex::new(HashMap::new()));
+        let module = house::House::new(Arc::clone(&online));
+        lock.insert(module.prefix.to_owned(), Box::new(module));
+        drop(lock);
         Server {
-            online: Arc::new(Mutex::new(HashMap::new()))
+            online: online,
+            modules: loaded_modules
         }
     }
 }

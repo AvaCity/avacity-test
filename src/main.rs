@@ -4,6 +4,7 @@ mod decoder;
 mod server;
 mod common;
 mod base_messages;
+mod modules;
 use server::Server;
 
 fn main() {
