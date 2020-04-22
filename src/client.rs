@@ -20,11 +20,11 @@ static XML: &'static str = "<?xml version=\"1.0\"?>
 static EMPTY: &'static [u8] = &[0, 0];
 
 pub struct Client {
-    pub stream: TcpStream,
+    pub stream: Mutex<TcpStream>,
     pub uid: String,
     pub online: Arc<Mutex<HashMap<String, Client>>>,
-    modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>,
-    redis: redis::Client,
+    pub modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>,
+    pub redis: redis::Client,
     pub encrypted: bool,
     pub compressed: bool,
     pub checksummed: bool,
@@ -34,16 +34,20 @@ impl Client {
     pub fn handle(&mut self) {
         let mut buffer = [0 as u8; 1024];
         loop {
-            let size = self.stream.read(&mut buffer).unwrap();
+            let mut read_lock = self.stream.lock().unwrap();
+            let size = read_lock.read(&mut buffer).unwrap();
+            drop(read_lock);
             let hex_string = hex::encode(&buffer[..size]);
             if size == 0 {
-                self.stream.shutdown(Shutdown::Both).expect("Shutdown failed!");
+                let lock = self.stream.lock().unwrap();
+                lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
                 break;
             }
             if hex_string == "3c706f6c6963792d66696c652d726571756573742f3e00" {
                 let bytes = &[XML.as_bytes(), EMPTY].concat()[..];
-                self.stream.write(bytes).expect("Write failed");
-                self.stream.shutdown(Shutdown::Both).expect("Shutdown failed!");
+                let mut lock = self.stream.lock().unwrap();
+                lock.write(bytes).expect("Write failed");
+                lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
                 break;
             }
             let data = &buffer[..size];
@@ -76,7 +80,7 @@ impl Client {
                         continue;
                     }
                     let module = lock.get(&module_name).expect("Impossible");
-                    module.handle(&self, msg);
+                    module.handle(self, msg);
                 }
             }
             buffer = [0 as u8; 1024];
@@ -84,7 +88,8 @@ impl Client {
         println!("drop connection");
     }
 
-    pub fn send(&mut self, msg: Vec<common::Value>, type_: u8) {
+    pub fn send(&self, msg: Vec<common::Value>, type_: u8) {
+        println!("send - {:?}", msg);
         let data = encoder::encode(msg, type_).unwrap();
         let mut length = data.len() as i32 + 1;
         let mut mask = 0;
@@ -103,7 +108,8 @@ impl Client {
             buf.put_u32(checksum);
         }
         buf.extend(&data[..]);
-        self.stream.write(&buf[..]).unwrap();
+        let mut lock = self.stream.lock().unwrap();
+        lock.write(&buf[..]).unwrap();
     }
 
     fn auth(&mut self, msg: &Vec<common::Value>) {
@@ -116,7 +122,8 @@ impl Client {
                 if uid != real_uid {
                     let msg = base_messages::wrong_pass();
                     self.send(msg, 2);
-                    self.stream.shutdown(Shutdown::Both).expect("Shutdown failed!");
+                    let lock = self.stream.lock().unwrap();
+                    lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
                     return;
                 }
                 self.uid = real_uid.clone();
@@ -130,7 +137,8 @@ impl Client {
             Err(_) => {
                 let msg = base_messages::wrong_pass();
                 self.send(msg, 2);
-                self.stream.shutdown(Shutdown::Both).expect("Shutdown failed!");
+                let lock = self.stream.lock().unwrap();
+                lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
                 return;
             }
         }
@@ -139,7 +147,7 @@ impl Client {
     pub fn new(stream: TcpStream, online: Arc<Mutex<HashMap<String, Client>>>,
                modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>) -> Client {
         Client {
-            stream: stream,
+            stream: Mutex::new(stream),
             uid: String::from("0"),
             online: online,
             modules: modules,
