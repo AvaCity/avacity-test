@@ -48,9 +48,8 @@ impl Base for House {
         println!("command {}", command);
         match command {
             "minfo" => self.get_my_info(client, msg),
-            _ => {
-                println!("Command {}.{} not found", self.prefix, command);
-            }
+            _ => println!("Command {} not found", tmp)
+            
         }
     }
 }

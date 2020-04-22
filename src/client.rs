@@ -17,7 +17,7 @@ static XML: &'static str = "<?xml version=\"1.0\"?>
 <cross-domain-policy>
 <allow-access-from domain=\"*\" to-ports=\"*\" />
 </cross-domain-policy>";
-static EMPTY: &'static [u8] = &[0, 0];
+static STRING_END: &'static [u8] = &[0, 0];
 
 pub struct Client {
     pub stream: Mutex<TcpStream>,
@@ -44,7 +44,7 @@ impl Client {
                 break;
             }
             if hex_string == "3c706f6c6963792d66696c652d726571756573742f3e00" {
-                let bytes = &[XML.as_bytes(), EMPTY].concat()[..];
+                let bytes = &[XML.as_bytes(), STRING_END].concat()[..];
                 let mut lock = self.stream.lock().unwrap();
                 lock.write(bytes).expect("Write failed");
                 lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
@@ -56,7 +56,7 @@ impl Client {
                 let mut tmp = [0; 4];
                 cur.read_exact(&mut tmp).unwrap();
                 let length = i32::from_be_bytes(tmp);
-                if data.len() as i32 - (cur.position() as i32) < length{
+                if data.len() as i32 - (cur.position() as i32) < length {
                     break;
                 }
                 let pos = cur.position() as usize;
@@ -65,10 +65,14 @@ impl Client {
                 let message = decoder::decode(&tmp_data).unwrap();
                 let type_ = message.get("type").expect("kavo").get_u8().unwrap();
                 let msg = message.get("msg").expect("kavo").get_vector().unwrap();
-                println!("type - {}", type_);
-                println!("msg - {:?}", msg);
-                if type_ == 1 {
+                println!("type - {}, msg - {:?}", type_, msg);
+                if type_ == 1 && self.uid == "0".to_owned() {
                     self.auth(msg);
+                }
+                else if self.uid == "0".to_owned() {
+                    let lock = self.stream.lock().unwrap();
+                    lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
+                    break;
                 }
                 else if type_ == 34 {
                     let tmp = msg[1].get_string().unwrap();
