@@ -83,7 +83,7 @@ pub fn encode_object(data: &HashMap<String, common::Value>) -> Vec<u8> {
     out.put_i32(data.len() as i32);
     for key in data.keys() {
         out.put(&encode_string(key, true)[..]);
-        let value = data.get(key).expect("Key not found!").clone();
+        let value = data.get(key).unwrap().clone();
         out.put(&encode_value(value).unwrap()[..]);
     }
     return out[..].to_vec();

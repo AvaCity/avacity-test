@@ -20,9 +20,8 @@ static XML: &'static str = "<?xml version=\"1.0\"?>
 static STRING_END: &'static [u8] = &[0, 0];
 
 pub struct Client {
-    pub stream: Mutex<TcpStream>,
+    pub stream: Arc<Mutex<TcpStream>>,
     pub uid: String,
-    pub online: Arc<Mutex<HashMap<String, Client>>>,
     pub modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>,
     pub redis: redis::Client,
     pub encrypted: bool,
@@ -63,8 +62,8 @@ impl Client {
                 let tmp_data = &data[pos..pos+(length as usize)];
                 cur.set_position(cur.position() + (length as u64));
                 let message = decoder::decode(&tmp_data).unwrap();
-                let type_ = message.get("type").expect("kavo").get_u8().unwrap();
-                let msg = message.get("msg").expect("kavo").get_vector().unwrap();
+                let type_ = message.get("type").unwrap().get_u8().unwrap();
+                let msg = message.get("msg").unwrap().get_vector().unwrap();
                 println!("type - {}, msg - {:?}", type_, msg);
                 if type_ == 1 && self.uid == "0".to_owned() {
                     self.auth(msg);
@@ -83,13 +82,19 @@ impl Client {
                         println!("Command {} not found", tmp);
                         continue;
                     }
-                    let module = lock.get(&module_name).expect("Impossible");
+                    let module = lock.get(&module_name).unwrap();
                     module.handle(self, msg);
                 }
             }
             buffer = [0 as u8; 1024];
         }
         println!("drop connection");
+        /*
+        let mut online_lock = self.online.lock().unwrap();
+        if online_lock.contains_key(&self.uid) {
+            online_lock.remove(&self.uid);
+        }
+        */
     }
 
     pub fn send(&self, msg: Vec<common::Value>, type_: u8) {
@@ -130,6 +135,16 @@ impl Client {
                     lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
                     return;
                 }
+                /*
+                let mut online_lock = self.online.lock().unwrap();
+                if online_lock.contains_key(&real_uid) {
+                    let lock = self.stream.lock().unwrap();
+                    lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
+                    return;
+                }
+                online_lock.insert(real_uid.clone(), Arc::clone(&self.stream));
+                drop(online_lock);
+                */
                 self.uid = real_uid.clone();
                 let mut v: Vec<common::Value> = Vec::new();
                 v.push(common::Value::String(real_uid));
@@ -148,12 +163,10 @@ impl Client {
         }
     }
 
-    pub fn new(stream: TcpStream, online: Arc<Mutex<HashMap<String, Client>>>,
-               modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>) -> Client {
+    pub fn new(stream: TcpStream, modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>) -> Client {
         Client {
-            stream: Mutex::new(stream),
+            stream: Arc::new(Mutex::new(stream)),
             uid: String::from("0"),
-            online: online,
             modules: modules,
             redis: redis::Client::open("redis://127.0.0.1/").unwrap(),
             checksummed: false,

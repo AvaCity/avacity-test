@@ -2,7 +2,9 @@ use std::collections::HashMap;
 use redis::Commands;
 use crate::client::Client;
 use crate::common::Value;
+use crate::inventory;
 pub mod house;
+pub mod avatar;
 
 pub trait Base: Send {
     fn handle(&self, client: &Client, msg: &Vec<Value>);
@@ -47,4 +49,73 @@ pub fn get_appearance(uid: &String, redis: &redis::Client) -> Option<HashMap<Str
         }
         None => None
     }
+}
+
+pub fn get_plr(uid: &String, redis: &redis::Client) -> Option<HashMap<String, Value>> {
+    let apprnc: HashMap<String, Value>;
+    let tmp = get_appearance(uid, redis);
+    match tmp {
+        Some(hashmap) => apprnc = hashmap,
+        None => return None
+    }
+    let mut con = redis.get_connection().unwrap();
+    let mut plr = HashMap::new();
+    plr.insert("uid".to_owned(), Value::String(uid.clone()));
+    plr.insert("apprnc".to_owned(), Value::Object(apprnc));
+    plr.insert("clths".to_owned(), Value::Object(inventory::get_clths(uid, redis)));
+    let mut ci = HashMap::new();
+    let exp: i32 = con.get(format!("uid:{}:exp", uid)).unwrap_or(0);
+    let crt: i32 = con.get(format!("uid:{}:crt", uid)).unwrap_or(0);
+    let hrt: i32 = con.get(format!("uid:{}:hrt", uid)).unwrap_or(0);
+    let lvt: i32 = con.get(format!("uid:{}:lvt", uid)).unwrap_or(0);
+    ci.insert("exp".to_owned(), Value::I32(exp));                  // exp
+    ci.insert("crt".to_owned(), Value::I32(crt));                  // clothes rating
+    ci.insert("hrt".to_owned(), Value::I32(hrt));                  // house rating
+    ci.insert("fexp".to_owned(), Value::I32(0));                   // fight exp
+    ci.insert("gdc".to_owned(), Value::I32(0));                    // gift day count
+    ci.insert("lgt".to_owned(), Value::I32(0));                    // last gift time
+    ci.insert("vip".to_owned(), Value::Boolean(true));             // vip
+    ci.insert("vexp".to_owned(), Value::I32(0));                   // vip expired at
+    ci.insert("vsexp".to_owned(), Value::I32(0));                  // vip subscription expired at
+    ci.insert("vsact".to_owned(), Value::Boolean(true));           // vip subscription active
+    ci.insert("vret".to_owned(), Value::I32(0));                   // vip refill energy time
+    ci.insert("vfgc".to_owned(), Value::I32(0));                   // vip free gifts count
+    ci.insert("ceid".to_owned(), Value::I32(0));                   // co engaged id
+    ci.insert("cmid".to_owned(), Value::I32(0));                   // co married id
+    ci.insert("dr".to_owned(), Value::Boolean(true));              // display relations
+    ci.insert("spp".to_owned(), Value::I32(0));                    // spent points
+    ci.insert("tts".to_owned(), Value::None);                      // tutorial step
+    ci.insert("eml".to_owned(), Value::None);                      // email
+    ci.insert("ys".to_owned(), Value::I32(0));                     // yandex status
+    ci.insert("ysct".to_owned(), Value::I32(0));                   // yandex session complete time
+    ci.insert("fak".to_owned(), Value::None);                      // first april key
+    ci.insert("shcr".to_owned(), Value::Boolean(true));            // show crown
+    ci.insert("gtrfrd".to_owned(), Value::I32(0));                 // gold transferred
+    ci.insert("strfrd".to_owned(), Value::I32(0));                 // silver transferred
+    ci.insert("rtrtm".to_owned(), Value::I32(0));                  // resources transfer time
+    ci.insert("kyktid".to_owned(), Value::None);                   // ticket id
+    ci.insert("actrt".to_owned(), Value::I32(0));                  // activity rating
+    ci.insert("compid".to_owned(), Value::I32(0));                 // competition id
+    ci.insert("actrp".to_owned(), Value::I32(0));                  // acitivity winner place
+    ci.insert("actrd".to_owned(), Value::I32(0));                  // acitivity winner until
+    ci.insert("shousd".to_owned(), Value::Boolean(false));         // shared object used
+    ci.insert("rpt".to_owned(), Value::I32(0));                    // reputation
+    ci.insert("as".to_owned(), Value::None);                       // avamen style
+    ci.insert("lvt".to_owned(), Value::I32(lvt));                  // last visit time
+    ci.insert("lrnt".to_owned(), Value::I32(0));                   // last rename time
+    ci.insert("lwts".to_owned(), Value::I32(0));                   // last wedding event time
+    ci.insert("skid".to_owned(), Value::None);                     // skate type id
+    ci.insert("skrt".to_owned(), Value::I32(0));                   // finish skate rent time
+    ci.insert("bcld".to_owned(), Value::I32(0));                   // baby cooldown
+    ci.insert("trid".to_owned(), Value::None);                     // trophy type id
+    ci.insert("trcd".to_owned(), Value::I32(0));                   // trophy cooldown
+    ci.insert("sbid".to_owned(), Value::None);                     // snowboard type id
+    ci.insert("sbrt".to_owned(), Value::I32(0));                   // snowboard finish rent time
+    ci.insert("plcmt".to_owned(), Value::Object(HashMap::new()));  // player competition
+    let mut pamns = HashMap::new();
+    pamns.insert("amn".to_owned(), Value::Vector(Vec::new()));
+    pamns.insert("crst".to_owned(), Value::I32(0));
+    ci.insert("pamns".to_owned(), Value::Object(pamns));           // personal animations
+    plr.insert("ci".to_owned(), Value::Object(ci));
+    return Some(plr);
 }

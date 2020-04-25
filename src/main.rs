@@ -1,4 +1,5 @@
 mod client;
+mod inventory;
 mod encoder;
 mod decoder;
 mod server;
