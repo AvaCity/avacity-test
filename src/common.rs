@@ -1,4 +1,29 @@
 use std::collections::HashMap;
+use std::net::TcpStream;
+use std::sync::{Mutex, Arc};
+
+pub struct PlayerData {
+    pub stream: Arc<Mutex<TcpStream>>,
+    pub room: String,
+    pub position: [f32; 2],
+    pub dimention: i32,
+    pub state: i32,
+    pub action_tag: String
+}
+
+impl PlayerData {
+    pub fn new(stream: Arc<Mutex<TcpStream>>, room: String, position: [f32; 2],
+               dimention: i32, state: i32, action_tag: String) -> PlayerData {
+        PlayerData {
+            stream,
+            room,
+            position,
+            dimention,
+            state,
+            action_tag
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum Value {

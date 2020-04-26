@@ -11,6 +11,7 @@ use crate::common;
 use crate::decoder;
 use crate::encoder;
 use crate::base_messages;
+use crate::common::PlayerData;
 use crate::modules::Base;
 
 static XML: &'static str = "<?xml version=\"1.0\"?>
@@ -23,6 +24,7 @@ pub struct Client {
     pub stream: Arc<Mutex<TcpStream>>,
     pub uid: String,
     pub modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>,
+    pub player_data: Arc<Mutex<HashMap<String, PlayerData>>>,
     pub redis: redis::Client,
     pub encrypted: bool,
     pub compressed: bool,
@@ -89,12 +91,10 @@ impl Client {
             buffer = [0 as u8; 1024];
         }
         println!("drop connection");
-        /*
-        let mut online_lock = self.online.lock().unwrap();
-        if online_lock.contains_key(&self.uid) {
-            online_lock.remove(&self.uid);
+        let mut player_data = self.player_data.lock().unwrap();
+        if player_data.contains_key(&self.uid) {
+            player_data.remove(&self.uid);
         }
-        */
     }
 
     pub fn send(&self, msg: Vec<common::Value>, type_: u8) {
@@ -135,16 +135,15 @@ impl Client {
                     lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
                     return;
                 }
-                /*
-                let mut online_lock = self.online.lock().unwrap();
-                if online_lock.contains_key(&real_uid) {
+                let mut player_data = self.player_data.lock().unwrap();
+                if player_data.contains_key(&real_uid) {
                     let lock = self.stream.lock().unwrap();
                     lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
                     return;
                 }
-                online_lock.insert(real_uid.clone(), Arc::clone(&self.stream));
-                drop(online_lock);
-                */
+                player_data.insert(real_uid.clone(), PlayerData::new(Arc::clone(&self.stream), String::new(),
+                                                                     [0.0, 0.0], 4, 0, String::new()));
+                drop(player_data);
                 self.uid = real_uid.clone();
                 let mut v: Vec<common::Value> = Vec::new();
                 v.push(common::Value::String(real_uid));
@@ -163,11 +162,13 @@ impl Client {
         }
     }
 
-    pub fn new(stream: TcpStream, modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>) -> Client {
+    pub fn new(stream: TcpStream, modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>,
+               player_data: Arc<Mutex<HashMap<String, PlayerData>>>) -> Client {
         Client {
             stream: Arc::new(Mutex::new(stream)),
             uid: String::from("0"),
             modules: modules,
+            player_data: player_data,
             redis: redis::Client::open("redis://127.0.0.1/").unwrap(),
             checksummed: false,
             compressed: false,

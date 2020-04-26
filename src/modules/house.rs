@@ -9,29 +9,27 @@ pub struct House {
     pub prefix: &'static str,
 }
 
-pub fn get_rooms(uid: &String, redis: &redis::Client) -> Vec<Value> {
+pub fn get_all_rooms(uid: &str, redis: &redis::Client) -> Vec<Value> {
     let mut con = redis.get_connection().unwrap();
     let rooms: HashSet<String> = con.smembers(format!("rooms:{}", uid)).unwrap();
     let mut out = Vec::new();
     for room in rooms {
-        let mut out_room = HashMap::new();
-        let data: Vec<String> = con.lrange(format!("rooms:{}:{}", uid, &room), 0, -1).unwrap();
-        let items = get_room_items(uid, &room, redis);
-        out_room.insert("f".to_owned(), Value::Vector(items));
-        out_room.insert("w".to_owned(), Value::I32(13));
-        out_room.insert("id".to_owned(), Value::String(room.clone()));
-        out_room.insert("lev".to_owned(), Value::I32(data[1].parse::<i32>().unwrap()));
-        out_room.insert("l".to_owned(), Value::I32(13));
-        out_room.insert("nm".to_owned(), Value::String(data[0].clone()));
-        out.push(Value::Object(out_room));
+        out.push(Value::Object(get_room(uid, &room, redis)));
     }
     return out;
 }
 
-pub fn get_room_items(uid: &String, room: &String, redis: &redis::Client) -> Vec<Value> {
+pub fn get_room(uid: &str, room: &str, redis: &redis::Client) -> HashMap<String, Value> {
     let mut con = redis.get_connection().unwrap();
+    let mut out_room = HashMap::new();
+    let data: Vec<String> = con.lrange(format!("rooms:{}:{}", uid, &room), 0, -1).unwrap();
+    out_room.insert("w".to_owned(), Value::I32(13));
+    out_room.insert("id".to_owned(), Value::String(room.to_owned()));
+    out_room.insert("lev".to_owned(), Value::I32(data[1].parse::<i32>().unwrap()));
+    out_room.insert("l".to_owned(), Value::I32(13));
+    out_room.insert("nm".to_owned(), Value::String(data[0].clone()));
     let items: HashSet<String> = con.smembers(format!("rooms:{}:{}:items", uid, room)).unwrap();
-    let mut out = Vec::new();
+    let mut room_items = Vec::new();
     for item in items {
         let data: HashMap<String, String> = con.hgetall(format!("rooms:{}:{}:items:{}", uid, room, &item)).unwrap();
         let mut out_item: HashMap<String, Value> = HashMap::new();
@@ -41,9 +39,10 @@ pub fn get_room_items(uid: &String, room: &String, redis: &redis::Client) -> Vec
         for key in data.keys() {
             out_item.insert(key.clone(), Value::String(data.get(key).unwrap().clone()));
         }
-        out.push(Value::Object(out_item));
+        room_items.push(Value::Object(out_item));
     }
-    return out;
+    out_room.insert("f".to_owned(), Value::Vector(room_items));
+    return out_room;
 }
 
 impl House {
@@ -70,7 +69,7 @@ impl House {
                 res.insert("emd".to_owned(), Value::I32(0));
                 plr.insert("res".to_owned(), Value::Object(res));
                 let mut hs = HashMap::new();
-                hs.insert("r".to_owned(), Value::Vector(get_rooms(&client.uid, &client.redis)));
+                hs.insert("r".to_owned(), Value::Vector(get_all_rooms(&client.uid, &client.redis)));
                 hs.insert("lt".to_owned(), Value::I32(0));
                 plr.insert("hs".to_owned(), Value::Object(hs));
                 plr.insert("inv".to_owned(), Value::Object(inventory::get(&client.uid, &client.redis)));
@@ -84,6 +83,57 @@ impl House {
         v.push(Value::Object(data));
         client.send(v, 34);
     }
+
+    fn get_room(&self, client: &Client, msg: &Vec<Value>) {
+        let data = msg[2].get_object().unwrap();
+        let lid = data.get("lid").unwrap().get_string().unwrap();
+        let gid = data.get("gid").unwrap().get_string().unwrap();
+        let rid = data.get("rid").unwrap().get_string().unwrap();
+        let room = format!("{}_{}_{}", lid, gid, rid);
+        let mut player_data = client.player_data.lock().unwrap();
+        let mut current_player = player_data.get_mut(&client.uid).unwrap();
+        current_player.room = room.clone();
+        let mut out_data = HashMap::new();
+        out_data.insert("rid".to_owned(), Value::String(room));
+        let mut v = Vec::new();
+        v.push(Value::String("h.gr".to_owned()));
+        v.push(Value::Object(out_data));
+        client.send(v, 34);
+    }
+
+    fn room(&self, client: &Client, msg: &Vec<Value>) {
+        let tmp = msg[1].get_string().unwrap();
+        let splitted: Vec<&str> = tmp.split(".").collect();
+        let command = splitted[2];
+        match command {
+            "info" => self.room_info(client, msg),
+            _ => println!("Command {} not found", tmp)
+        }
+    }
+
+    fn room_info(&self, client: &Client, msg: &Vec<Value>) {
+        let data = msg[2].get_object().unwrap();
+        let uid = data.get("uid").unwrap().get_string().unwrap();
+        let rid = data.get("rid").unwrap().get_string().unwrap();
+        let room = get_room(&uid, &rid, &client.redis);
+        let room_name = format!("house_{}_{}", &uid, &rid);
+        let mut rmmb = Vec::new();
+        let player_data = client.player_data.lock().unwrap();
+        for player_uid in player_data.keys() {
+            let player = player_data.get(&player_uid.clone()).unwrap();
+            if player.room == room_name {
+                rmmb.push(Value::Object(get_plr(&player_uid, &client.redis).unwrap()));
+            }
+        }
+        let mut out_data = HashMap::new();
+        out_data.insert("rm".to_owned(), Value::Object(room));
+        out_data.insert("rmmb".to_owned(), Value::Vector(rmmb));
+        out_data.insert("evn".to_owned(), Value::None);
+        let mut v = Vec::new();
+        v.push(Value::String("h.r.info".to_owned()));
+        v.push(Value::Object(out_data));
+        client.send(v, 34);
+    }
 }
 
 impl Base for House {
@@ -94,6 +144,7 @@ impl Base for House {
         match command {
             "minfo" => self.get_my_info(client, msg),
             "gr" => self.get_room(client, msg),
+            "r" => self.room(client, msg),
             _ => println!("Command {} not found", tmp)
             
         }

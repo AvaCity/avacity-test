@@ -10,7 +10,7 @@ pub trait Base: Send {
     fn handle(&self, client: &Client, msg: &Vec<Value>);
 }
 
-pub fn get_appearance(uid: &String, redis: &redis::Client) -> Option<HashMap<String, Value>> {
+pub fn get_appearance(uid: &str, redis: &redis::Client) -> Option<HashMap<String, Value>> {
     let mut con = redis.get_connection().unwrap();
     let apprnc: Option<Vec<String>> = con.lrange(format!("uid:{}:appearance", uid),
                                                  0, -1).unwrap();
@@ -51,7 +51,7 @@ pub fn get_appearance(uid: &String, redis: &redis::Client) -> Option<HashMap<Str
     }
 }
 
-pub fn get_plr(uid: &String, redis: &redis::Client) -> Option<HashMap<String, Value>> {
+pub fn get_plr(uid: &str, redis: &redis::Client) -> Option<HashMap<String, Value>> {
     let apprnc: HashMap<String, Value>;
     let tmp = get_appearance(uid, redis);
     match tmp {
@@ -60,7 +60,7 @@ pub fn get_plr(uid: &String, redis: &redis::Client) -> Option<HashMap<String, Va
     }
     let mut con = redis.get_connection().unwrap();
     let mut plr = HashMap::new();
-    plr.insert("uid".to_owned(), Value::String(uid.clone()));
+    plr.insert("uid".to_owned(), Value::String(uid.to_owned()));
     plr.insert("apprnc".to_owned(), Value::Object(apprnc));
     plr.insert("clths".to_owned(), Value::Object(inventory::get_clths(uid, redis)));
     let mut ci = HashMap::new();
