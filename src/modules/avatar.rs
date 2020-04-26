@@ -6,7 +6,7 @@ use crate::inventory;
 use crate::modules::{Base, get_appearance};
 
 pub struct Avatar {
-    pub prefix: &'static str,
+    pub prefix: &'static str
 }
 
 impl Avatar {

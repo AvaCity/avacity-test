@@ -3,7 +3,7 @@ use redis::Commands;
 use crate::client::Client;
 use crate::common::Value;
 use crate::inventory;
-use crate::modules::{Base, get_plr};
+use crate::modules::{Base, get_plr, notify};
 
 pub struct House {
     pub prefix: &'static str,
@@ -58,15 +58,7 @@ impl House {
         let mut data: HashMap<String, Value> = HashMap::new();
         match get_plr(&client.uid, &client.redis) {
             Some(mut plr) => {
-                let mut con = client.redis.get_connection().unwrap();
-                let silver: i32 = con.get(format!("uid:{}:slvr", &client.uid)).unwrap_or(0);
-                let gold: i32 = con.get(format!("uid:{}:gld", &client.uid)).unwrap_or(0);
-                let energy: i32 = con.get(format!("uid:{}:enrg", &client.uid)).unwrap_or(0);
-                let mut res = HashMap::new();
-                res.insert("slvr".to_owned(), Value::I32(silver));
-                res.insert("gld".to_owned(), Value::I32(gold));
-                res.insert("enrg".to_owned(), Value::I32(energy));
-                res.insert("emd".to_owned(), Value::I32(0));
+                let res = notify::get_res(&client.uid, &client.redis);
                 plr.insert("res".to_owned(), Value::Object(res));
                 let mut hs = HashMap::new();
                 hs.insert("r".to_owned(), Value::Vector(get_all_rooms(&client.uid, &client.redis)));

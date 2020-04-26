@@ -5,6 +5,8 @@ use crate::common::Value;
 use crate::inventory;
 pub mod house;
 pub mod avatar;
+pub mod billing;
+pub mod notify;
 
 pub trait Base: Send {
     fn handle(&self, client: &Client, msg: &Vec<Value>);
