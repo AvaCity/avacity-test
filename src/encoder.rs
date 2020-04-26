@@ -19,7 +19,7 @@ pub fn encode_value(item: &common::Value) -> Result<Vec<u8>, &'static str> {
         common::Value::Boolean(v) => return Ok(encode_boolean(*v)),
         common::Value::I32(v) => return Ok(encode_int32(*v)),
         common::Value::I64(v) => return Ok(encode_int64(*v)),
-        common::Value::F32(v) => return Ok(encode_float(*v)),
+        common::Value::F64(v) => return Ok(encode_float(*v)),
         common::Value::Vector(v) => return Ok(encode_vector(v)),
         common::Value::String(v) => return Ok(encode_string(v, false)),
         common::Value::Object(v) => return Ok(encode_object(v)),
@@ -54,10 +54,10 @@ pub fn encode_int64(item: i64) -> Vec<u8> {
     return out[..].to_vec();
 }
 
-pub fn encode_float(item: f32) -> Vec<u8> {
+pub fn encode_float(item: f64) -> Vec<u8> {
     let mut out = BytesMut::new();
     out.put_u8(4);
-    out.put_f32(item);
+    out.put_f64(item);
     return out[..].to_vec();
 }
 

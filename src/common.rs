@@ -33,7 +33,7 @@ pub enum Value {
     U8(u8),
     I32(i32),
     I64(i64),
-    F32(f32),
+    F64(f64),
     Vector(Vec<Value>),
     Object(HashMap<String, Value>)
 }

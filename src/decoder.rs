@@ -60,7 +60,7 @@ fn decode_value(mut buffer: &mut Cursor<&[u8]>) -> Result<common::Value, Box<dyn
         1 => Ok(common::Value::Boolean(decode_boolean(&mut buffer)?)),
         2 => Ok(common::Value::I32(decode_int32(&mut buffer)?)),
         3 => Ok(common::Value::I64(decode_int64(&mut buffer)?)),
-        4 => Ok(common::Value::F32(decode_float32(&mut buffer)?)),
+        4 => Ok(common::Value::F64(decode_float64(&mut buffer)?)),
         5 => Ok(common::Value::String(decode_string(&mut buffer)?)),
         6 => Ok(common::Value::Object(decode_object(&mut buffer)?)),
         7 => Ok(common::Value::Vector(decode_vector(&mut buffer)?)),
@@ -86,10 +86,10 @@ fn decode_int64(buffer: &mut Cursor<&[u8]>) -> Result<i64, Box<dyn Error>> {
     Ok(i64::from_be_bytes(tmp))
 }
 
-fn decode_float32(buffer: &mut Cursor<&[u8]>) -> Result<f32, Box<dyn Error>> {
-    let mut tmp = [0; 4];
+fn decode_float64(buffer: &mut Cursor<&[u8]>) -> Result<f64, Box<dyn Error>> {
+    let mut tmp = [0; 8];
     buffer.read_exact(&mut tmp)?;
-    Ok(f32::from_be_bytes(tmp))
+    Ok(f64::from_be_bytes(tmp))
 }
 
 fn decode_object(mut buffer: &mut Cursor<&[u8]>) -> Result<HashMap<String, common::Value>, Box<dyn Error>> {
