@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::error::Error;
 use redis::Commands;
 use crate::common::Value;
 use crate::client::Client;
@@ -16,9 +17,9 @@ impl Billing {
         }
     }
 
-    fn check_purchase(&self, client: &Client, msg: &Vec<Value>) {
-        let data = msg[2].get_object().unwrap();
-        let pack = data.get("prid").unwrap().get_string().unwrap();
+    fn check_purchase(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+        let data = msg[2].get_object()?;
+        let pack = data.get("prid").ok_or("key not found")?.get_string()?;
         let amount: i32;
         match pack.as_str() {
             "pack10" => amount = 10,
@@ -31,26 +32,28 @@ impl Billing {
             "pack1500" => amount = 2200,
             _ => amount = 0
         }
-        let mut con = client.redis.get_connection().unwrap();
-        let _: () = con.incr(format!("uid:{}:gld", &client.uid), amount).unwrap();
-        notify::update_resources(client);
+        let mut con = client.redis.get_connection()?;
+        let _: () = con.incr(format!("uid:{}:gld", &client.uid), amount)?;
+        notify::update_resources(client)?;
         let mut out_data = HashMap::new();
         out_data.insert("ingld".to_owned(), Value::I32(amount));
         let mut v = Vec::new();
         v.push(Value::String("b.ingld".to_owned()));
         v.push(Value::Object(out_data));
         client.send(v, 34);
+        Ok(())
     }
 }
 
 impl Base for Billing {
-    fn handle(&self, client: &Client, msg: &Vec<Value>) {
-        let tmp = msg[1].get_string().unwrap();
+    fn handle(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+        let tmp = msg[1].get_string()?;
         let splitted: Vec<&str> = tmp.split(".").collect();
         let command = splitted[1];
         match command {
-            "chkprchs" => self.check_purchase(client, msg),
+            "chkprchs" => self.check_purchase(client, msg)?,
             _ => println!("Command {} not found", tmp)
         }
+        Ok(())
     }
 }

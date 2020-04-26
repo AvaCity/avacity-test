@@ -11,7 +11,7 @@ use crate::common;
 use crate::decoder;
 use crate::encoder;
 use crate::base_messages;
-use crate::common::PlayerData;
+use crate::common::{PlayerData, Value};
 use crate::modules::Base;
 
 static XML: &'static str = "<?xml version=\"1.0\"?>
@@ -63,7 +63,11 @@ impl Client {
                 let pos = cur.position() as usize;
                 let tmp_data = &data[pos..pos+(length as usize)];
                 cur.set_position(cur.position() + (length as u64));
-                let message = decoder::decode(&tmp_data).unwrap();
+                let message: HashMap<String, Value>;
+                match decoder::decode(&tmp_data) {
+                    Ok(value) => message = value,
+                    Err(_) => break
+                }
                 let type_ = message.get("type").unwrap().get_u8().unwrap();
                 let msg = message.get("msg").unwrap().get_vector().unwrap();
                 println!("type - {}, msg - {:?}", type_, msg);

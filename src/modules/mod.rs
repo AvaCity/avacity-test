@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::error::Error;
 use redis::Commands;
 use crate::client::Client;
 use crate::common::Value;
@@ -9,62 +10,61 @@ pub mod billing;
 pub mod notify;
 
 pub trait Base: Send {
-    fn handle(&self, client: &Client, msg: &Vec<Value>);
+    fn handle(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>>;
 }
 
-pub fn get_appearance(uid: &str, redis: &redis::Client) -> Option<HashMap<String, Value>> {
-    let mut con = redis.get_connection().unwrap();
-    let apprnc: Option<Vec<String>> = con.lrange(format!("uid:{}:appearance", uid),
-                                                 0, -1).unwrap();
+pub fn get_appearance(uid: &str, redis: &redis::Client) -> Result<Option<HashMap<String, Value>>, Box<dyn Error>> {
+    let mut con = redis.get_connection()?;
+    let apprnc: Option<Vec<String>> = con.lrange(format!("uid:{}:appearance", uid), 0, -1)?;
     match apprnc {
         Some(vec) => {
             let mut out: HashMap<String, Value> = HashMap::new();
             if vec.len() == 0 {
-                return None;
+                return Ok(None);
             }
             out.insert("n".to_owned(), Value::String(vec[0].clone()));                  // name
-            out.insert("nct".to_owned(), Value::I32(vec[1].parse::<i32>().unwrap()));   // name change time
-            out.insert("g".to_owned(), Value::I32(vec[2].parse::<i32>().unwrap()));     // gender
-            out.insert("sc".to_owned(), Value::I32(vec[3].parse::<i32>().unwrap()));    // skin color
-            out.insert("ht".to_owned(), Value::I32(vec[4].parse::<i32>().unwrap()));    // hair type
-            out.insert("hc".to_owned(), Value::I32(vec[5].parse::<i32>().unwrap()));    // hair color
-            out.insert("brt".to_owned(), Value::I32(vec[6].parse::<i32>().unwrap()));   // brows type
-            out.insert("brc".to_owned(), Value::I32(vec[7].parse::<i32>().unwrap()));   // brows color
-            out.insert("et".to_owned(), Value::I32(vec[8].parse::<i32>().unwrap()));    // eyes type
-            out.insert("ec".to_owned(), Value::I32(vec[9].parse::<i32>().unwrap()));    // eyes color
-            out.insert("fft".to_owned(), Value::I32(vec[10].parse::<i32>().unwrap()));  // face feature type
-            out.insert("fat".to_owned(), Value::I32(vec[11].parse::<i32>().unwrap()));  // face art type
-            out.insert("fac".to_owned(), Value::I32(vec[12].parse::<i32>().unwrap()));  // face art color
-            out.insert("ss".to_owned(), Value::I32(vec[13].parse::<i32>().unwrap()));   // strass type
-            out.insert("ssc".to_owned(), Value::I32(vec[14].parse::<i32>().unwrap()));  // strass color
-            out.insert("mt".to_owned(), Value::I32(vec[15].parse::<i32>().unwrap()));   // mouth type
-            out.insert("mc".to_owned(), Value::I32(vec[16].parse::<i32>().unwrap()));   // mouth color
-            out.insert("sh".to_owned(), Value::I32(vec[17].parse::<i32>().unwrap()));   // shadow type
-            out.insert("shc".to_owned(), Value::I32(vec[18].parse::<i32>().unwrap()));  // shadow color
-            out.insert("rg".to_owned(), Value::I32(vec[19].parse::<i32>().unwrap()));   // rouge type
-            out.insert("rc".to_owned(), Value::I32(vec[20].parse::<i32>().unwrap()));   // rouge color
-            out.insert("pt".to_owned(), Value::I32(vec[21].parse::<i32>().unwrap()));   // pirsing type
-            out.insert("pc".to_owned(), Value::I32(vec[22].parse::<i32>().unwrap()));   // pirsing color
-            out.insert("bt".to_owned(), Value::I32(vec[23].parse::<i32>().unwrap()));   // beard type
-            out.insert("bc".to_owned(), Value::I32(vec[24].parse::<i32>().unwrap()));   // beard color
-            Some(out)
+            out.insert("nct".to_owned(), Value::I32(vec[1].parse::<i32>()?));   // name change time
+            out.insert("g".to_owned(), Value::I32(vec[2].parse::<i32>()?));     // gender
+            out.insert("sc".to_owned(), Value::I32(vec[3].parse::<i32>()?));    // skin color
+            out.insert("ht".to_owned(), Value::I32(vec[4].parse::<i32>()?));    // hair type
+            out.insert("hc".to_owned(), Value::I32(vec[5].parse::<i32>()?));    // hair color
+            out.insert("brt".to_owned(), Value::I32(vec[6].parse::<i32>()?));   // brows type
+            out.insert("brc".to_owned(), Value::I32(vec[7].parse::<i32>()?));   // brows color
+            out.insert("et".to_owned(), Value::I32(vec[8].parse::<i32>()?));    // eyes type
+            out.insert("ec".to_owned(), Value::I32(vec[9].parse::<i32>()?));    // eyes color
+            out.insert("fft".to_owned(), Value::I32(vec[10].parse::<i32>()?));  // face feature type
+            out.insert("fat".to_owned(), Value::I32(vec[11].parse::<i32>()?));  // face art type
+            out.insert("fac".to_owned(), Value::I32(vec[12].parse::<i32>()?));  // face art color
+            out.insert("ss".to_owned(), Value::I32(vec[13].parse::<i32>()?));   // strass type
+            out.insert("ssc".to_owned(), Value::I32(vec[14].parse::<i32>()?));  // strass color
+            out.insert("mt".to_owned(), Value::I32(vec[15].parse::<i32>()?));   // mouth type
+            out.insert("mc".to_owned(), Value::I32(vec[16].parse::<i32>()?));   // mouth color
+            out.insert("sh".to_owned(), Value::I32(vec[17].parse::<i32>()?));   // shadow type
+            out.insert("shc".to_owned(), Value::I32(vec[18].parse::<i32>()?));  // shadow color
+            out.insert("rg".to_owned(), Value::I32(vec[19].parse::<i32>()?));   // rouge type
+            out.insert("rc".to_owned(), Value::I32(vec[20].parse::<i32>()?));   // rouge color
+            out.insert("pt".to_owned(), Value::I32(vec[21].parse::<i32>()?));   // pirsing type
+            out.insert("pc".to_owned(), Value::I32(vec[22].parse::<i32>()?));   // pirsing color
+            out.insert("bt".to_owned(), Value::I32(vec[23].parse::<i32>()?));   // beard type
+            out.insert("bc".to_owned(), Value::I32(vec[24].parse::<i32>()?));   // beard color
+            Ok(Some(out))
         }
-        None => None
+        None => Ok(None)
     }
 }
 
-pub fn get_plr(uid: &str, redis: &redis::Client) -> Option<HashMap<String, Value>> {
+pub fn get_plr(uid: &str, redis: &redis::Client) -> Result<Option<HashMap<String, Value>>, Box<dyn Error>> {
     let apprnc: HashMap<String, Value>;
-    let tmp = get_appearance(uid, redis);
+    let tmp = get_appearance(uid, redis)?;
     match tmp {
         Some(hashmap) => apprnc = hashmap,
-        None => return None
+        None => return Ok(None)
     }
-    let mut con = redis.get_connection().unwrap();
+    let mut con = redis.get_connection()?;
     let mut plr = HashMap::new();
     plr.insert("uid".to_owned(), Value::String(uid.to_owned()));
     plr.insert("apprnc".to_owned(), Value::Object(apprnc));
-    plr.insert("clths".to_owned(), Value::Object(inventory::get_clths(uid, redis)));
+    plr.insert("clths".to_owned(), Value::Object(inventory::get_clths(uid, redis)?));
     let mut ci = HashMap::new();
     let exp: i32 = con.get(format!("uid:{}:exp", uid)).unwrap_or(0);
     let crt: i32 = con.get(format!("uid:{}:crt", uid)).unwrap_or(0);
@@ -119,5 +119,5 @@ pub fn get_plr(uid: &str, redis: &redis::Client) -> Option<HashMap<String, Value
     pamns.insert("crst".to_owned(), Value::I32(0));
     ci.insert("pamns".to_owned(), Value::Object(pamns));           // personal animations
     plr.insert("ci".to_owned(), Value::Object(ci));
-    return Some(plr);
+    return Ok(Some(plr));
 }

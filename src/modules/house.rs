@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::error::Error;
 use redis::Commands;
 use crate::client::Client;
 use crate::common::Value;
@@ -9,40 +10,40 @@ pub struct House {
     pub prefix: &'static str,
 }
 
-pub fn get_all_rooms(uid: &str, redis: &redis::Client) -> Vec<Value> {
-    let mut con = redis.get_connection().unwrap();
-    let rooms: HashSet<String> = con.smembers(format!("rooms:{}", uid)).unwrap();
+pub fn get_all_rooms(uid: &str, redis: &redis::Client) -> Result<Vec<Value>, Box<dyn Error>> {
+    let mut con = redis.get_connection()?;
+    let rooms: HashSet<String> = con.smembers(format!("rooms:{}", uid))?;
     let mut out = Vec::new();
     for room in rooms {
-        out.push(Value::Object(get_room(uid, &room, redis)));
+        out.push(Value::Object(get_room(uid, &room, redis)?));
     }
-    return out;
+    Ok(out)
 }
 
-pub fn get_room(uid: &str, room: &str, redis: &redis::Client) -> HashMap<String, Value> {
-    let mut con = redis.get_connection().unwrap();
+pub fn get_room(uid: &str, room: &str, redis: &redis::Client) -> Result<HashMap<String, Value>, Box<dyn Error>> {
+    let mut con = redis.get_connection()?;
     let mut out_room = HashMap::new();
-    let data: Vec<String> = con.lrange(format!("rooms:{}:{}", uid, &room), 0, -1).unwrap();
+    let data: Vec<String> = con.lrange(format!("rooms:{}:{}", uid, &room), 0, -1)?;
     out_room.insert("w".to_owned(), Value::I32(13));
     out_room.insert("id".to_owned(), Value::String(room.to_owned()));
-    out_room.insert("lev".to_owned(), Value::I32(data[1].parse::<i32>().unwrap()));
+    out_room.insert("lev".to_owned(), Value::I32(data[1].parse::<i32>()?));
     out_room.insert("l".to_owned(), Value::I32(13));
     out_room.insert("nm".to_owned(), Value::String(data[0].clone()));
-    let items: HashSet<String> = con.smembers(format!("rooms:{}:{}:items", uid, room)).unwrap();
+    let items: HashSet<String> = con.smembers(format!("rooms:{}:{}:items", uid, room))?;
     let mut room_items = Vec::new();
     for item in items {
-        let data: HashMap<String, String> = con.hgetall(format!("rooms:{}:{}:items:{}", uid, room, &item)).unwrap();
+        let data: HashMap<String, String> = con.hgetall(format!("rooms:{}:{}:items:{}", uid, room, &item))?;
         let mut out_item: HashMap<String, Value> = HashMap::new();
         let splitted: Vec<&str> = item.split("_").collect();
         out_item.insert("tpid".to_owned(), Value::String(splitted[0].to_owned()));
-        out_item.insert("lid".to_owned(), Value::I32(splitted[1].parse::<i32>().unwrap()));
+        out_item.insert("lid".to_owned(), Value::I32(splitted[1].parse::<i32>()?));
         for key in data.keys() {
-            out_item.insert(key.clone(), Value::String(data.get(key).unwrap().clone()));
+            out_item.insert(key.clone(), Value::String(data.get(key).ok_or("key not found")?.clone()));
         }
         room_items.push(Value::Object(out_item));
     }
     out_room.insert("f".to_owned(), Value::Vector(room_items));
-    return out_room;
+    Ok(out_room)
 }
 
 impl House {
@@ -52,19 +53,19 @@ impl House {
         }
     }
 
-    fn get_my_info(&self, client: &Client, _msg: &Vec<Value>) {
+    fn get_my_info(&self, client: &Client, _msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
         let mut v: Vec<Value> = Vec::new();
         v.push(Value::String("h.minfo".to_owned()));
         let mut data: HashMap<String, Value> = HashMap::new();
-        match get_plr(&client.uid, &client.redis) {
+        match get_plr(&client.uid, &client.redis)? {
             Some(mut plr) => {
-                let res = notify::get_res(&client.uid, &client.redis);
+                let res = notify::get_res(&client.uid, &client.redis)?;
                 plr.insert("res".to_owned(), Value::Object(res));
                 let mut hs = HashMap::new();
-                hs.insert("r".to_owned(), Value::Vector(get_all_rooms(&client.uid, &client.redis)));
+                hs.insert("r".to_owned(), Value::Vector(get_all_rooms(&client.uid, &client.redis)?));
                 hs.insert("lt".to_owned(), Value::I32(0));
                 plr.insert("hs".to_owned(), Value::Object(hs));
-                plr.insert("inv".to_owned(), Value::Object(inventory::get(&client.uid, &client.redis)));
+                plr.insert("inv".to_owned(), Value::Object(inventory::get(&client.uid, &client.redis)?));
                 data.insert("plr".to_owned(), Value::Object(plr));
                 data.insert("tm".to_owned(), Value::I32(1));
             }
@@ -74,16 +75,17 @@ impl House {
         }
         v.push(Value::Object(data));
         client.send(v, 34);
+        Ok(())
     }
 
-    fn get_room(&self, client: &Client, msg: &Vec<Value>) {
-        let data = msg[2].get_object().unwrap();
-        let lid = data.get("lid").unwrap().get_string().unwrap();
-        let gid = data.get("gid").unwrap().get_string().unwrap();
-        let rid = data.get("rid").unwrap().get_string().unwrap();
+    fn get_room(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+        let data = msg[2].get_object()?;
+        let lid = data.get("lid").ok_or("key not found")?.get_string()?;
+        let gid = data.get("gid").ok_or("key not found")?.get_string()?;
+        let rid = data.get("rid").ok_or("key not found")?.get_string()?;
         let room = format!("{}_{}_{}", lid, gid, rid);
         let mut player_data = client.player_data.lock().unwrap();
-        let mut current_player = player_data.get_mut(&client.uid).unwrap();
+        let mut current_player = player_data.get_mut(&client.uid).ok_or("Can't get mut")?;
         current_player.room = room.clone();
         let mut out_data = HashMap::new();
         out_data.insert("rid".to_owned(), Value::String(room));
@@ -91,30 +93,35 @@ impl House {
         v.push(Value::String("h.gr".to_owned()));
         v.push(Value::Object(out_data));
         client.send(v, 34);
+        Ok(())
     }
 
-    fn room(&self, client: &Client, msg: &Vec<Value>) {
-        let tmp = msg[1].get_string().unwrap();
+    fn room(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+        let tmp = msg[1].get_string()?;
         let splitted: Vec<&str> = tmp.split(".").collect();
         let command = splitted[2];
         match command {
-            "info" => self.room_info(client, msg),
+            "info" => self.room_info(client, msg)?,
             _ => println!("Command {} not found", tmp)
         }
+        Ok(())
     }
 
-    fn room_info(&self, client: &Client, msg: &Vec<Value>) {
-        let data = msg[2].get_object().unwrap();
-        let uid = data.get("uid").unwrap().get_string().unwrap();
-        let rid = data.get("rid").unwrap().get_string().unwrap();
-        let room = get_room(&uid, &rid, &client.redis);
+    fn room_info(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+        let data = msg[2].get_object()?;
+        let uid = data.get("uid").ok_or("key not found")?.get_string()?;
+        let rid = data.get("rid").ok_or("key not found")?.get_string()?;
+        let room = get_room(&uid, &rid, &client.redis)?;
         let room_name = format!("house_{}_{}", &uid, &rid);
         let mut rmmb = Vec::new();
         let player_data = client.player_data.lock().unwrap();
         for player_uid in player_data.keys() {
-            let player = player_data.get(&player_uid.clone()).unwrap();
+            let player = player_data.get(&player_uid.clone()).ok_or("player not found")?;
             if player.room == room_name {
-                rmmb.push(Value::Object(get_plr(&player_uid, &client.redis).unwrap()));
+                match get_plr(&player_uid, &client.redis)? {
+                    Some(plr) => rmmb.push(Value::Object(plr)),
+                    None => continue
+                }
             }
         }
         let mut out_data = HashMap::new();
@@ -125,20 +132,21 @@ impl House {
         v.push(Value::String("h.r.info".to_owned()));
         v.push(Value::Object(out_data));
         client.send(v, 34);
+        Ok(())
     }
 }
 
 impl Base for House {
-    fn handle(&self, client: &Client, msg: &Vec<Value>) {
-        let tmp = msg[1].get_string().unwrap();
+    fn handle(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+        let tmp = msg[1].get_string()?;
         let splitted: Vec<&str> = tmp.split(".").collect();
         let command = splitted[1];
         match command {
-            "minfo" => self.get_my_info(client, msg),
-            "gr" => self.get_room(client, msg),
-            "r" => self.room(client, msg),
+            "minfo" => self.get_my_info(client, msg)?,
+            "gr" => self.get_room(client, msg)?,
+            "r" => self.room(client, msg)?,
             _ => println!("Command {} not found", tmp)
-            
         }
+        Ok(())
     }
 }
