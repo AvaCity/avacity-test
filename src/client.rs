@@ -73,7 +73,10 @@ impl Client {
                 let msg = message.get("msg").unwrap().get_vector().unwrap();
                 println!("type - {}, msg - {:?}", type_, msg);
                 if type_ == 1 && self.uid == "0".to_owned() {
-                    self.auth(msg);
+                    match self.auth(msg) {
+                        Ok(()) => {},
+                        Err(error) => println!("Error: {:?}", error)
+                    }
                 }
                 else if self.uid == "0".to_owned() {
                     let lock = self.stream.lock().unwrap();
@@ -95,7 +98,10 @@ impl Client {
                         continue;
                     }
                     let module = lock.get(&module_name).unwrap();
-                    module.handle(self, msg);
+                    match module.handle(self, msg) {
+                        Ok(()) => {},
+                        Err(error) => println!("Error: {:?}", error)
+                    }
                 }
             }
             buffer = [0 as u8; 1024];
