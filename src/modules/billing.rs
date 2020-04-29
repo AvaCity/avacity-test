@@ -20,21 +20,20 @@ impl Billing {
     fn check_purchase(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
         let data = msg[2].get_object()?;
         let pack = data.get("prid").ok_or("key not found")?.get_string()?;
-        let amount: i32;
-        match pack.as_str() { // паки с их бонусами
-            "pack10" => amount = 10,
-            "pack30" => amount = 32,
-            "pack50" => amount = 55,
-            "pack100" => amount = 120,
-            "pack200" => amount = 260,
-            "pack500" => amount = 700,
-            "pack1000" => amount = 1450,
-            "pack1500" => amount = 2200,
-            "pack2500" => amount = 4000,
-            "pack5000" => amount = 7000,
-            "pack9999" => amount = 13999,
-            _ => amount = 0
-        }
+        let amount = match pack.as_str() { // паки с их бонусами
+            "pack10" => 10,
+            "pack30" => 32,
+            "pack50" => 55,
+            "pack100" => 120,
+            "pack200" => 260,
+            "pack500" => 700,
+            "pack1000" => 450,
+            "pack1500" => 2200,
+            "pack2500" => 4000,
+            "pack5000" => 7000,
+            "pack9999" => 13999,
+            _ => 0
+        };
         let mut con = client.redis.get_connection()?;
         let _: () = con.incr(format!("uid:{}:gld", &client.uid), amount)?;
         notify::update_resources(client)?;
