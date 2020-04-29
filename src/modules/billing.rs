@@ -21,7 +21,7 @@ impl Billing {
         let data = msg[2].get_object()?;
         let pack = data.get("prid").ok_or("key not found")?.get_string()?;
         let amount: i32;
-        match pack.as_str() {
+        match pack.as_str() { // паки с их бонусами
             "pack10" => amount = 10,
             "pack30" => amount = 32,
             "pack50" => amount = 55,
@@ -30,6 +30,9 @@ impl Billing {
             "pack500" => amount = 700,
             "pack1000" => amount = 1450,
             "pack1500" => amount = 2200,
+            "pack2500" => amount = 4000,
+            "pack5000" => amount = 7000,
+            "pack9999" => amount = 13999,
             _ => amount = 0
         }
         let mut con = client.redis.get_connection()?;
