@@ -41,7 +41,7 @@ impl Avatar {
         let mut data = HashMap::new();
         data.insert("apprnc".to_owned(), Value::Object(get_appearance(&client.uid, &client.redis)?.unwrap()));
         v.push(Value::Object(data));
-        client.send(v, 34);
+        client.send(&v, 34)?;
         Ok(())
     }
 

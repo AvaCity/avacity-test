@@ -4,7 +4,7 @@ use redis::Commands;
 use crate::client::Client;
 use crate::common::Value;
 use crate::inventory;
-use crate::modules::{Base, get_plr, notify};
+use crate::modules::{Base, get_plr, notify, location};
 
 pub struct House {
     pub prefix: &'static str,
@@ -57,7 +57,8 @@ impl House {
         let mut v: Vec<Value> = Vec::new();
         v.push(Value::String("h.minfo".to_owned()));
         let mut data: HashMap<String, Value> = HashMap::new();
-        match get_plr(&client.uid, &client.redis)? {
+        let player_data = client.player_data.lock().unwrap();
+        match get_plr(&client.uid, &player_data, &client.redis)? {
             Some(mut plr) => {
                 let res = notify::get_res(&client.uid, &client.redis)?;
                 plr.insert("res".to_owned(), Value::Object(res));
@@ -74,7 +75,7 @@ impl House {
             }
         }
         v.push(Value::Object(data));
-        client.send(v, 34);
+        client.send(&v, 34)?;
         Ok(())
     }
 
@@ -84,15 +85,14 @@ impl House {
         let gid = data.get("gid").ok_or("key not found")?.get_string()?;
         let rid = data.get("rid").ok_or("key not found")?.get_string()?;
         let room = format!("{}_{}_{}", lid, gid, rid);
-        let mut player_data = client.player_data.lock().unwrap();
-        let mut current_player = player_data.get_mut(&client.uid).ok_or("Can't get mut")?;
-        current_player.room = room.clone();
+        location::leave_room(self.prefix, client)?;
+        location::join_room(self.prefix, client, &room)?;
         let mut out_data = HashMap::new();
         out_data.insert("rid".to_owned(), Value::String(room));
         let mut v = Vec::new();
         v.push(Value::String("h.gr".to_owned()));
         v.push(Value::Object(out_data));
-        client.send(v, 34);
+        client.send(&v, 34)?;
         Ok(())
     }
 
@@ -102,15 +102,15 @@ impl House {
         let command = splitted[2];
         match command {
             "info" => self.room_info(client, msg)?,
-            _ => println!("Command {} not found", tmp)
+            _ => location::room(self.prefix, client, msg)?
         }
         Ok(())
     }
 
     fn room_info(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
         let data = msg[2].get_object()?;
-        let uid = data.get("uid").ok_or("key not found")?.get_string()?;
-        let rid = data.get("rid").ok_or("key not found")?.get_string()?;
+        let uid = data.get("uid").ok_or("err")?.get_string()?;
+        let rid = data.get("rid").ok_or("err")?.get_string()?;
         let room = get_room(&uid, &rid, &client.redis)?;
         let room_name = format!("house_{}_{}", &uid, &rid);
         let mut rmmb = Vec::new();
@@ -118,7 +118,7 @@ impl House {
         for player_uid in player_data.keys() {
             let player = player_data.get(&player_uid.clone()).ok_or("player not found")?;
             if player.room == room_name {
-                match get_plr(&player_uid, &client.redis)? {
+                match get_plr(&player_uid, &player_data, &client.redis)? {
                     Some(plr) => rmmb.push(Value::Object(plr)),
                     None => continue
                 }
@@ -131,7 +131,7 @@ impl House {
         let mut v = Vec::new();
         v.push(Value::String("h.r.info".to_owned()));
         v.push(Value::Object(out_data));
-        client.send(v, 34);
+        client.send(&v, 34)?;
         Ok(())
     }
 }

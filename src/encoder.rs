@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use crate::common;
 use bytes::{BytesMut, BufMut};
 
-pub fn encode(data: Vec<common::Value>, type_: u8) -> Result<Vec<u8>, &'static str> {
+pub fn encode(data: &Vec<common::Value>, type_: u8) -> Result<Vec<u8>, &'static str> {
     let mut out = BytesMut::new();
     out.put_u8(type_);
     out.put_i32(data.len() as i32);
@@ -84,7 +84,7 @@ pub fn encode_object(data: &HashMap<String, common::Value>) -> Vec<u8> {
     for key in data.keys() {
         out.put(&encode_string(key, true)[..]);
         let value = data.get(key).unwrap().clone();
-        out.put(&encode_value(value).unwrap()[..]);
+        out.put(&encode_value(&value).unwrap()[..]);
     }
     return out[..].to_vec();
 }

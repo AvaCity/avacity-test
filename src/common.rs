@@ -5,26 +5,27 @@ use std::sync::{Mutex, Arc};
 pub struct PlayerData {
     pub stream: Arc<Mutex<TcpStream>>,
     pub room: String,
-    pub position: [f32; 2],
-    pub dimention: i32,
+    pub position: [f64; 2],
+    pub direction: i32,
     pub state: i32,
     pub action_tag: String
 }
 
 impl PlayerData {
-    pub fn new(stream: Arc<Mutex<TcpStream>>, room: String, position: [f32; 2],
-               dimention: i32, state: i32, action_tag: String) -> PlayerData {
+    pub fn new(stream: Arc<Mutex<TcpStream>>, room: String, position: [f64; 2],
+               direction: i32, state: i32, action_tag: String) -> PlayerData {
         PlayerData {
             stream,
             room,
             position,
-            dimention,
+            direction,
             state,
             action_tag
         }
     }
 }
 
+#[derive(Clone)]
 #[derive(Debug)]
 pub enum Value {
     None,
@@ -55,6 +56,13 @@ impl Value {
     }
     pub fn get_i32(&self) -> Result<i32, &'static str> {
         if let Value::I32(v) = self {
+            return Ok(*v);
+        } else {
+            return Err("Can't convert");
+        }
+    }
+    pub fn get_f64(&self) -> Result<f64, &'static str> {
+        if let Value::F64(v) = self {
             return Ok(*v);
         } else {
             return Err("Can't convert");

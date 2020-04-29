@@ -24,6 +24,6 @@ pub fn update_resources(client: &Client) -> Result<(), Box<dyn Error>> {
     let mut v = Vec::new();
     v.push(Value::String("ntf.res".to_owned()));
     v.push(Value::Object(out_data));
-    client.send(v, 34);
+    client.send(&v, 34)?;
     Ok(())
 }

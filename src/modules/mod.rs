@@ -1,10 +1,18 @@
+use bytes::{BytesMut, BufMut};
+use crc::{crc32, Hasher32};
 use std::collections::HashMap;
 use std::error::Error;
+use std::sync::{Mutex, Arc};
+use std::io::Write;
+use std::net::TcpStream;
 use redis::Commands;
+use crate::encoder;
 use crate::client::Client;
-use crate::common::Value;
+use crate::common::{PlayerData, Value};
 use crate::inventory;
+pub mod location;
 pub mod house;
+pub mod outside;
 pub mod avatar;
 pub mod billing;
 pub mod notify;
@@ -22,7 +30,7 @@ pub fn get_appearance(uid: &str, redis: &redis::Client) -> Result<Option<HashMap
             if vec.len() == 0 {
                 return Ok(None);
             }
-            out.insert("n".to_owned(), Value::String(vec[0].clone()));                  // name
+            out.insert("n".to_owned(), Value::String(vec[0].clone()));          // name
             out.insert("nct".to_owned(), Value::I32(vec[1].parse::<i32>()?));   // name change time
             out.insert("g".to_owned(), Value::I32(vec[2].parse::<i32>()?));     // gender
             out.insert("sc".to_owned(), Value::I32(vec[3].parse::<i32>()?));    // skin color
@@ -53,7 +61,8 @@ pub fn get_appearance(uid: &str, redis: &redis::Client) -> Result<Option<HashMap
     }
 }
 
-pub fn get_plr(uid: &str, redis: &redis::Client) -> Result<Option<HashMap<String, Value>>, Box<dyn Error>> {
+pub fn get_plr(uid: &str, player_data: &HashMap<String, PlayerData>,
+               redis: &redis::Client) -> Result<Option<HashMap<String, Value>>, Box<dyn Error>> {
     let apprnc: HashMap<String, Value>;
     let tmp = get_appearance(uid, redis)?;
     match tmp {
@@ -65,6 +74,20 @@ pub fn get_plr(uid: &str, redis: &redis::Client) -> Result<Option<HashMap<String
     plr.insert("uid".to_owned(), Value::String(uid.to_owned()));
     plr.insert("apprnc".to_owned(), Value::Object(apprnc));
     plr.insert("clths".to_owned(), Value::Object(inventory::get_clths(uid, redis)?));
+    if player_data.contains_key(uid){
+        let player = player_data.get(uid).unwrap();
+        let mut locinfo = HashMap::new();
+        locinfo.insert("x".to_owned(), Value::F64(player.position[0].clone()));
+        locinfo.insert("y".to_owned(), Value::F64(player.position[1].clone()));
+        locinfo.insert("d".to_owned(), Value::I32(player.direction.clone()));
+        locinfo.insert("st".to_owned(), Value::I32(player.state.clone()));
+        locinfo.insert("at".to_owned(), Value::String(player.action_tag.clone()));
+        locinfo.insert("l".to_owned(), Value::String(player.room.clone()));
+        locinfo.insert("pl".to_owned(), Value::String("".to_owned()));
+        locinfo.insert("s".to_owned(), Value::String("127.0.0.1".to_owned()));
+        locinfo.insert("shlc".to_owned(), Value::Boolean(true));
+        plr.insert("locinfo".to_owned(), Value::Object(locinfo));
+    }
     let mut ci = HashMap::new();
     let exp: i32 = con.get(format!("uid:{}:exp", uid)).unwrap_or(0);
     let crt: i32 = con.get(format!("uid:{}:crt", uid)).unwrap_or(0);
@@ -120,4 +143,25 @@ pub fn get_plr(uid: &str, redis: &redis::Client) -> Result<Option<HashMap<String
     ci.insert("pamns".to_owned(), Value::Object(pamns));           // personal animations
     plr.insert("ci".to_owned(), Value::Object(ci));
     return Ok(Some(plr));
+}
+
+// костыль
+pub fn send_to(stream: &Arc<Mutex<TcpStream>>, msg: &Vec<Value>, type_: u8) -> Result<(), Box<dyn Error>> {
+    println!("send - {:?}", msg);
+    let data = encoder::encode(msg, type_).unwrap();
+    let length = data.len() as i32 + 5;
+    let mut mask = 0;
+    let mut buf = BytesMut::new();
+    let checksum: u32;
+    mask = mask | (1 << 3);
+    let mut digest = crc32::Digest::new(crc32::IEEE);
+    digest.write(&data[..]);
+    checksum = digest.sum32();
+    buf.put_i32(length);
+    buf.put_u8(mask);
+    buf.put_u32(checksum);
+    buf.extend(&data[..]);
+    let mut lock = stream.lock().unwrap();
+    lock.write(&buf[..])?;
+    Ok(())
 }

@@ -40,7 +40,7 @@ impl Billing {
         let mut v = Vec::new();
         v.push(Value::String("b.ingld".to_owned()));
         v.push(Value::Object(out_data));
-        client.send(v, 34);
+        client.send(&v, 34)?;
         Ok(())
     }
 }

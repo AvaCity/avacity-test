@@ -1,6 +1,7 @@
 extern crate hex;
 extern crate redis;
 use std::collections::HashMap;
+use std::error::Error;
 use std::io::{Read, Write, Cursor};
 use std::sync::{Mutex, Arc};
 use std::net::{TcpStream, Shutdown};
@@ -79,6 +80,11 @@ impl Client {
                     lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
                     break;
                 }
+                else if type_ == 2 {
+                    let lock = self.stream.lock().unwrap();
+                    lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
+                    break;
+                }
                 else if type_ == 34 {
                     let tmp = msg[1].get_string().unwrap();
                     let splitted: Vec<&str> = tmp.split(".").collect();
@@ -101,7 +107,7 @@ impl Client {
         }
     }
 
-    pub fn send(&self, msg: Vec<common::Value>, type_: u8) {
+    pub fn send(&self, msg: &Vec<common::Value>, type_: u8) -> Result<(), Box<dyn Error>> {
         println!("send - {:?}", msg);
         let data = encoder::encode(msg, type_).unwrap();
         let mut length = data.len() as i32 + 1;
@@ -122,28 +128,29 @@ impl Client {
         }
         buf.extend(&data[..]);
         let mut lock = self.stream.lock().unwrap();
-        lock.write(&buf[..]).unwrap();
+        lock.write(&buf[..])?;
+        Ok(())
     }
 
-    fn auth(&mut self, msg: &Vec<common::Value>) {
-        let uid = msg[1].get_string().unwrap();
-        let token = msg[2].get_string().unwrap();
-        let mut con = self.redis.get_connection().unwrap();
+    fn auth(&mut self, msg: &Vec<common::Value>) -> Result<(), Box<dyn Error>> {
+        let uid = msg[1].get_string()?;
+        let token = msg[2].get_string()?;
+        let mut con = self.redis.get_connection()?;
         match con.get(format!("auth:{}", token)) {
             Ok(value) => {
                 let real_uid: String = value;
                 if uid != real_uid {
                     let msg = base_messages::wrong_pass();
-                    self.send(msg, 2);
+                    self.send(&msg, 2)?;
                     let lock = self.stream.lock().unwrap();
                     lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
-                    return;
+                    return Ok(())
                 }
                 let mut player_data = self.player_data.lock().unwrap();
                 if player_data.contains_key(&real_uid) {
                     let lock = self.stream.lock().unwrap();
                     lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
-                    return;
+                    return Ok(())
                 }
                 player_data.insert(real_uid.clone(), PlayerData::new(Arc::clone(&self.stream), String::new(),
                                                                      [0.0, 0.0], 4, 0, String::new()));
@@ -154,16 +161,17 @@ impl Client {
                 v.push(common::Value::Boolean(true));
                 v.push(common::Value::Boolean(false));
                 v.push(common::Value::Boolean(false));
-                self.send(v, 1);
+                self.send(&v, 1)?;
             }
             Err(_) => {
                 let msg = base_messages::wrong_pass();
-                self.send(msg, 2);
+                self.send(&msg, 2)?;
                 let lock = self.stream.lock().unwrap();
                 lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
-                return;
+                return Ok(())
             }
         }
+        Ok(())
     }
 
     pub fn new(stream: TcpStream, modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>,
