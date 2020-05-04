@@ -4,7 +4,7 @@ use std::net::TcpListener;
 use std::thread;
 use crate::client::Client;
 use crate::common::PlayerData;
-use crate::modules::{Base, house, outside, avatar, billing};
+use crate::modules::{Base, house, outside, avatar, billing, component};
 
 pub struct Server {
     pub modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>,
@@ -36,6 +36,8 @@ impl Server {
         let module = billing::Billing::new();
         lock.insert(module.prefix.to_owned(), Box::new(module));
         let module = outside::Outside::new();
+        lock.insert(module.prefix.to_owned(), Box::new(module));
+        let module = component::Component::new();
         lock.insert(module.prefix.to_owned(), Box::new(module));
         drop(lock);
         Server {

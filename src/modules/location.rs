@@ -73,7 +73,7 @@ fn update_state(prefix: &'static str, client: &Client, msg: &Vec<Value>) -> Resu
     let room_name = msg[0].get_string()?;
     let uid = data.get("uid").ok_or("err")?.get_string()?;
     if uid != client.uid {
-        println!("{} tried to fake his uid", &client.uid);
+        println!("{} tried to fake its uid", &client.uid);
         return Ok(())
     }
     let x = data.get("x").ok_or("err")?.get_f64()?;
