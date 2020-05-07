@@ -5,9 +5,19 @@ use crate::common::Value;
 use crate::modules::{send_to, get_plr};
 
 
-pub fn join_room(prefix: &'static str, client: &Client, room: &str) -> Result<(), Box<dyn Error>> {
+pub fn get_prefix(room: &str) -> &'static str {
+    let tmp: Vec<&str> = room.split("_").collect();
+    match tmp[0] {
+        "house" => "h",
+        "work" => "w",
+        _ => "o"
+    }
+}
+
+pub fn join_room(client: &Client, room: &str) -> Result<(), Box<dyn Error>> {
     let mut player_data = client.player_data.lock().unwrap();
     let mut current_player = player_data.get_mut(&client.uid).ok_or("Can't get mut")?;
+    let prefix = get_prefix(&room);
     current_player.room = room.to_owned();
     current_player.position = [-1.0, -1.0];
     current_player.direction = 4;
@@ -31,13 +41,14 @@ pub fn join_room(prefix: &'static str, client: &Client, room: &str) -> Result<()
     Ok(())
 }
 
-pub fn leave_room(prefix: &'static str, client: &Client) -> Result<(), Box<dyn Error>> {
+pub fn leave_room(client: &Client) -> Result<(), Box<dyn Error>> {
     let mut player_data = client.player_data.lock().unwrap();
     let mut current_player = player_data.get_mut(&client.uid).ok_or("Can't get mut")?;
     if current_player.room.is_empty() {
         return Ok(())
     }
     let room = current_player.room.clone();
+    let prefix = get_prefix(&room);
     current_player.room = "".to_owned();
     let mut msg1 = Vec::new();
     msg1.push(Value::String(format!("{}.r.lv", prefix)));

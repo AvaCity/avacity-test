@@ -85,8 +85,8 @@ impl House {
         let gid = data.get("gid").ok_or("key not found")?.get_string()?;
         let rid = data.get("rid").ok_or("key not found")?.get_string()?;
         let room = format!("{}_{}_{}", lid, gid, rid);
-        location::leave_room(self.prefix, client)?;
-        location::join_room(self.prefix, client, &room)?;
+        location::leave_room(client)?;
+        location::join_room(client, &room)?;
         let mut out_data = HashMap::new();
         out_data.insert("rid".to_owned(), Value::String(room));
         let mut v = Vec::new();

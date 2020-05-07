@@ -13,7 +13,7 @@ use crate::decoder;
 use crate::encoder;
 use crate::base_messages;
 use crate::common::{PlayerData, Value};
-use crate::modules::Base;
+use crate::modules::{Base, location};
 
 static XML: &'static str = "<?xml version=\"1.0\"?>
 <cross-domain-policy>
@@ -107,6 +107,7 @@ impl Client {
             buffer = [0 as u8; 1024];
         }
         println!("drop connection");
+        location::leave_room(self).ok();
         let mut player_data = self.player_data.lock().unwrap();
         if player_data.contains_key(&self.uid) {
             player_data.remove(&self.uid);

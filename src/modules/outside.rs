@@ -45,8 +45,8 @@ impl Outside {
                 num = num + 1;
             }
         }
-        location::leave_room(self.prefix, client)?;
-        location::join_room(self.prefix, client, &room_name)?;
+        location::leave_room(client)?;
+        location::join_room(client, &room_name)?;
         let mut out_data = HashMap::new();
         out_data.insert("rid".to_owned(), Value::String(room_name));
         let mut v = Vec::new();
