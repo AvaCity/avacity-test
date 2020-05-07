@@ -62,7 +62,7 @@ impl Outside {
         let command = splitted[2];
         match command {
             "info" => self.room_info(client, msg)?,
-            _ => location::room(self.prefix, client, msg)?
+            _ => location::room(client, msg)?
         }
         Ok(())
     }

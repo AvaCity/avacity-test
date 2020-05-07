@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use crate::client::Client;
 use crate::common::Value;
-use crate::modules::send_to;
+use crate::modules::{send_to, get_plr};
 
 
 pub fn join_room(prefix: &'static str, client: &Client, room: &str) -> Result<(), Box<dyn Error>> {
@@ -16,7 +16,7 @@ pub fn join_room(prefix: &'static str, client: &Client, room: &str) -> Result<()
     let mut msg1 = Vec::new();
     msg1.push(Value::String(format!("{}.r.jn", prefix)));
     let mut out_data = HashMap::new();
-    out_data.insert("uid".to_owned(), Value::String(client.uid.clone()));
+    out_data.insert("plr".to_owned(), Value::Object(get_plr(&client.uid, &player_data, &client.redis)?.ok_or("err")?));
     msg1.push(Value::Object(out_data));
     let mut msg2 = Vec::new();
     msg2.push(Value::String(room.to_owned()));
@@ -57,18 +57,19 @@ pub fn leave_room(prefix: &'static str, client: &Client) -> Result<(), Box<dyn E
     Ok(())
 }
 
-pub fn room(prefix: &'static str, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+pub fn room(client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
     let tmp = msg[1].get_string()?;
     let splitted: Vec<&str> = tmp.split(".").collect();
     let command = splitted[2];
     match command {
-        "u" => update_state(prefix, client, msg)?,
+        "u" => update_state(client, msg)?,
+        "m" => action(client, msg)?,
         _ => println!("Command {} not found", tmp)
     }
     Ok(())
 }
 
-fn update_state(prefix: &'static str, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+fn update_state(client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
     let data = msg[2].get_object()?;
     let room_name = msg[0].get_string()?;
     let uid = data.get("uid").ok_or("err")?.get_string()?;
@@ -94,8 +95,32 @@ fn update_state(prefix: &'static str, client: &Client, msg: &Vec<Value>) -> Resu
     current_player.state = state;
     current_player.action_tag = action_tag;
     let mut v = Vec::new();
-    v.push(Value::String(format!("{}.r.u", prefix)));
+    v.push(msg[1].clone());
     v.push(msg[2].clone());
+    for player_uid in player_data.keys() {
+        if player_uid == &client.uid {
+            continue;
+        }
+        let player = player_data.get(&player_uid.clone()).ok_or("player not found")?;
+        if player.room == room_name {
+            send_to(&player.stream, &v, 34)?;
+        }
+    }
+    Ok(())
+}
+
+fn action(client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+    let data = msg[2].get_object()?;
+    let room_name = msg[0].get_string()?;
+    let uid = data.get("uid").ok_or("err")?.get_string()?;
+    if uid != client.uid {
+        println!("{} tried to fake its uid", &client.uid);
+        return Ok(())
+    }
+    let mut v = Vec::new();
+    v.push(msg[1].clone());
+    v.push(msg[2].clone());
+    let player_data = client.player_data.lock().unwrap();
     for player_uid in player_data.keys() {
         if player_uid == &client.uid {
             continue;
