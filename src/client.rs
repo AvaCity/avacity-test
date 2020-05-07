@@ -22,7 +22,7 @@ static XML: &'static str = "<?xml version=\"1.0\"?>
 static STRING_END: &'static [u8] = &[0, 0];
 
 pub struct Client {
-    pub stream: Arc<Mutex<TcpStream>>,
+    pub stream: Mutex<TcpStream>,
     pub uid: String,
     pub modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>,
     pub player_data: Arc<Mutex<HashMap<String, PlayerData>>>,
@@ -158,9 +158,11 @@ impl Client {
                     lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
                     return Ok(())
                 }
-                player_data.insert(real_uid.clone(), PlayerData::new(Arc::clone(&self.stream), String::new(),
-                                                                     [0.0, 0.0], 4, 0, String::new()));
+                let lock = self.stream.lock().unwrap();
+                player_data.insert(real_uid.clone(), PlayerData::new(Arc::new(Mutex::new(lock.try_clone()?)),
+                                                                     String::new(), [0.0, 0.0], 4, 0, String::new()));
                 drop(player_data);
+                drop(lock);
                 self.uid = real_uid.clone();
                 let mut v: Vec<common::Value> = Vec::new();
                 v.push(common::Value::String(real_uid));
@@ -183,7 +185,7 @@ impl Client {
     pub fn new(stream: TcpStream, modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>,
                player_data: Arc<Mutex<HashMap<String, PlayerData>>>) -> Client {
         Client {
-            stream: Arc::new(Mutex::new(stream)),
+            stream: Mutex::new(stream),
             uid: String::from("0"),
             modules: modules,
             player_data: player_data,
