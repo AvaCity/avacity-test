@@ -45,6 +45,26 @@ impl Billing {
         client.send(&v, 34)?;
         Ok(())
     }
+
+    fn buy_silver(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+        let data = msg[2].get_object()?;
+        let amount = data.get("gld").ok_or("err")?.get_i32()?;
+        let mut con = client.redis.get_connection()?;
+        let gold: i32 = con.get(format!("uid:{}:gld", &client.uid))?;
+        if amount > gold {
+            return Ok(())
+        }
+        let _: () = con.incr(format!("uid:{}:gld", &client.uid), -amount)?;
+        let _: () = con.incr(format!("uid:{}:slvr", &client.uid), amount*100)?;
+        notify::update_resources(client)?;
+        let mut out_data = HashMap::new();
+        out_data.insert("inslv".to_owned(), Value::I32(amount*100));
+        let mut v = Vec::new();
+        v.push(Value::String("b.inslv".to_owned()));
+        v.push(Value::Object(out_data));
+        client.send(&v, 34)?;
+        Ok(())
+    }
 }
 
 impl Base for Billing {
@@ -54,6 +74,7 @@ impl Base for Billing {
         let command = splitted[1];
         match command {
             "chkprchs" => self.check_purchase(client, msg)?,
+            "bs" => self.buy_silver(client, msg)?,
             _ => println!("Command {} not found", tmp)
         }
         Ok(())
