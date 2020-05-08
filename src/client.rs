@@ -139,7 +139,18 @@ impl Client {
     }
 
     fn auth(&mut self, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+        let zone = msg[0].get_string()?;
         let uid = msg[1].get_string()?;
+        if &zone == "account" {
+            let mut v: Vec<Value> = Vec::new();
+            v.push(Value::String(uid));
+            v.push(Value::String("".to_owned()));
+            v.push(Value::Boolean(true));
+            v.push(Value::Boolean(false));
+            v.push(Value::Boolean(false));
+            self.send(&v, 1)?;
+            return Ok(())
+        }
         let token = msg[2].get_string()?;
         let auth_data = msg[3].get_object()?;
         let version = auth_data.get("v").ok_or("err")?.get_i32()?;
