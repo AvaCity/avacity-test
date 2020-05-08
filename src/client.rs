@@ -8,7 +8,6 @@ use std::net::{TcpStream, Shutdown};
 use bytes::{BytesMut, BufMut};
 use crc::{crc32, Hasher32};
 use redis::Commands;
-use crate::common;
 use crate::decoder;
 use crate::encoder;
 use crate::base_messages;
@@ -114,7 +113,7 @@ impl Client {
         }
     }
 
-    pub fn send(&self, msg: &Vec<common::Value>, type_: u8) -> Result<(), Box<dyn Error>> {
+    pub fn send(&self, msg: &Vec<Value>, type_: u8) -> Result<(), Box<dyn Error>> {
         println!("send - {:?}", msg);
         let data = encoder::encode(msg, type_).unwrap();
         let mut length = data.len() as i32 + 1;
@@ -139,9 +138,11 @@ impl Client {
         Ok(())
     }
 
-    fn auth(&mut self, msg: &Vec<common::Value>) -> Result<(), Box<dyn Error>> {
+    fn auth(&mut self, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
         let uid = msg[1].get_string()?;
         let token = msg[2].get_string()?;
+        let auth_data = msg[3].get_object()?;
+        let version = auth_data.get("v").ok_or("err")?.get_i32()?;
         let mut con = self.redis.get_connection()?;
         match con.get(format!("auth:{}", token)) {
             Ok(value) => {
@@ -165,12 +166,16 @@ impl Client {
                 drop(player_data);
                 drop(lock);
                 self.uid = real_uid.clone();
-                let mut v: Vec<common::Value> = Vec::new();
-                v.push(common::Value::String(real_uid));
-                v.push(common::Value::Boolean(true));
-                v.push(common::Value::Boolean(false));
-                v.push(common::Value::Boolean(false));
+                let mut v: Vec<Value> = Vec::new();
+                v.push(Value::String(real_uid));
+                if version == 3 {
+                    v.push(Value::String("".to_owned()));
+                }
+                v.push(Value::Boolean(true));
+                v.push(Value::Boolean(false));
+                v.push(Value::Boolean(false));
                 self.send(&v, 1)?;
+                self.checksummed = true;
             }
             Err(_) => {
                 let msg = base_messages::wrong_pass();

@@ -17,6 +17,7 @@ pub mod avatar;
 pub mod billing;
 pub mod notify;
 pub mod component;
+pub mod descriptor;
 
 pub trait Base: Send {
     fn handle(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>>;
