@@ -104,7 +104,7 @@ impl Descriptor {
         third.insert("ml".to_owned(), Value::I32(0));
         third.insert("id".to_owned(), Value::String("v1".to_owned()));
         third.insert("vip".to_owned(), Value::Boolean(true));
-        third.insert("uc".to_owned(), Value::String("vip1_map".to_owned()));
+        third.insert("uc".to_owned(), Value::String("vip_1_map".to_owned()));
         third.insert("bgs".to_owned(), Value::String("vip1".to_owned()));
         let mut fourth = third.clone();
         fourth.insert("id".to_owned(), Value::String("v1e".to_owned()));
@@ -170,7 +170,7 @@ impl Descriptor {
         let mut first = HashMap::new();
         first.insert("id".to_owned(), Value::String("pb1".to_owned()));
         first.insert("vip".to_owned(), Value::Boolean(false));
-        first.insert("uc".to_owned(), Value::String("street_1_map".to_owned()));
+        first.insert("uc".to_owned(), Value::String("public_beach_1_map".to_owned()));
         first.insert("dc".to_owned(), Value::String("outside".to_owned()));
         first.insert("ml".to_owned(), Value::I32(0));
         first.insert("bgs".to_owned(), Value::String("outside1".to_owned()));
@@ -192,7 +192,7 @@ impl Descriptor {
         let mut first = HashMap::new();
         first.insert("id".to_owned(), Value::String("br1".to_owned()));
         first.insert("vip".to_owned(), Value::Boolean(false));
-        first.insert("uc".to_owned(), Value::String("street_1_map".to_owned()));
+        first.insert("uc".to_owned(), Value::String("ballroom_1_map".to_owned()));
         first.insert("dc".to_owned(), Value::String("outside".to_owned()));
         first.insert("ml".to_owned(), Value::I32(0));
         first.insert("bgs".to_owned(), Value::String("outside1".to_owned()));
@@ -252,7 +252,7 @@ impl Descriptor {
         let mut first = HashMap::new();
         first.insert("id".to_owned(), Value::String("ctr1".to_owned()));
         first.insert("vip".to_owned(), Value::Boolean(false));
-        first.insert("uc".to_owned(), Value::String("street_1_map".to_owned()));
+        first.insert("uc".to_owned(), Value::String("couturier_1_map".to_owned()));
         first.insert("dc".to_owned(), Value::String("outside".to_owned()));
         first.insert("ml".to_owned(), Value::I32(0));
         first.insert("bgs".to_owned(), Value::String("outside1".to_owned()));
