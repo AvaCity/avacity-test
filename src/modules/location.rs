@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::error::Error;
 use crate::client::Client;
-use crate::common::Value;
+use crate::common::{PlayerData, Value};
 use crate::modules::{send_to, get_plr};
 
 
@@ -73,9 +73,32 @@ pub fn room(client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
     let splitted: Vec<&str> = tmp.split(".").collect();
     let command = splitted[2];
     match command {
+        "ra" => {
+            let player_data = client.player_data.lock().unwrap();
+            refresh_avatar(&client.uid, msg[0].get_string()?.as_str(),
+                           &player_data, &client.redis)?
+        },
         "u" => update_state(client, msg)?,
         "m" => action(client, msg)?,
         _ => println!("Command {} not found", tmp)
+    }
+    Ok(())
+}
+
+fn refresh_avatar(uid: &str, room: &str, player_data: &HashMap<String, PlayerData>,
+                  redis: &redis::Client) -> Result<(), Box<dyn Error>> {
+    let prefix = get_prefix(room);
+    let plr = get_plr(&uid, &player_data, &redis)?.ok_or("err")?;
+    let mut v = Vec::new();
+    v.push(Value::String(format!("{}.r.ra", prefix)));
+    let mut data = HashMap::new();
+    data.insert("plr".to_string(), Value::Object(plr));
+    v.push(Value::Object(data));
+    for player_uid in player_data.keys() {
+        let player = player_data.get(&player_uid.clone()).ok_or("player not found")?;
+        if &player.room == room {
+            send_to(&player.stream, &v, 34)?;
+        }
     }
     Ok(())
 }

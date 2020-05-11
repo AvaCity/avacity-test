@@ -23,6 +23,7 @@ pub fn add_item(redis: &redis::Client, uid: &str, item: &str, type_: &str, count
         return Ok(());
     }
     let mut con = redis.get_connection()?;
+    let _: () = con.sadd(format!("uid:{}:items", uid), item)?;
     let _: () = con.rpush(format!("uid:{}:items:{}", uid, item), type_)?;
     let _: () = con.rpush(format!("uid:{}:items:{}", uid, item), count)?;
     Ok(())
@@ -56,6 +57,53 @@ pub fn get_clths(uid: &str, redis: &redis::Client) -> Result<HashMap<String, Val
     Ok(out)
 }
 
+pub fn get_all_collections(uid: &str, redis: &redis::Client) -> Result<HashMap<String, Value>, Box<dyn Error>> {
+    let mut con = redis.get_connection()?;
+    let mut collections = HashMap::new();
+    for collection in &["casual", "club", "official", "swimwear", "underdress"] {
+        let clothes: HashSet<String> = con.smembers(format!("uid:{}:{}", uid, collection))?;
+        let mut cct = Vec::new();
+        for cloth in clothes {
+            let splitted: Vec<&str> = cloth.split("_").collect();
+            if splitted.len() == 2 {
+                cct.push(Value::String(format!("{}_{}", splitted[0], splitted[1])));
+            }
+            else {
+                cct.push(Value::String(splitted[0].to_string()));
+            }
+        }
+        let mut out = HashMap::new();
+        out.insert("cct".to_owned(), Value::Vector(cct));
+        out.insert("ctp".to_owned(), Value::String(collection.to_string()));
+        out.insert("cn".to_owned(), Value::String("".to_owned()));
+        collections.insert(collection.to_string(), Value::Object(out));
+    }
+    let mut data = HashMap::new();
+    let current_collection: String = con.get(format!("uid:{}:wearing", uid))?;
+    data.insert("cc".to_owned(), Value::String(current_collection));
+    data.insert("ccltns".to_owned(), Value::Object(collections));
+    Ok(data)
+}
+
+pub fn get_collection(uid: &str, redis: &redis::Client) -> Result<HashMap<String, Value>, Box<dyn Error>> {
+    let mut con = redis.get_connection()?;
+    let collection: String = con.get(format!("uid:{}:wearing", uid))?;
+    let clothes: HashSet<String> = con.smembers(format!("uid:{}:{}", uid, collection))?;
+    let mut cct = Vec::new();
+    for cloth in clothes {
+        let splitted: Vec<&str> = cloth.split("_").collect();
+        if splitted.len() == 2 {
+            cct.push(Value::String(format!("{}_{}", splitted[0], splitted[1])));
+        }
+        else {
+            cct.push(Value::String(splitted[0].to_owned()));
+        }
+    }
+    let mut out = HashMap::new();
+    out.insert("cct".to_owned(), Value::Vector(cct));
+    Ok(out)
+}
+
 pub fn get(uid: &str, redis: &redis::Client) -> Result<HashMap<String, Value>, Box<dyn Error>> {
     let mut con = redis.get_connection()?;
     let mut frn_it = Vec::new();
@@ -63,6 +111,8 @@ pub fn get(uid: &str, redis: &redis::Client) -> Result<HashMap<String, Value>, B
     let mut gm_it = Vec::new();
     let mut lt_it = Vec::new();
     let mut cls_it = Vec::new();
+    let collection: String = con.get(format!("uid:{}:wearing", uid))?;
+    let clothes: HashSet<String> = con.smembers(format!("uid:{}:{}", uid, collection))?;
     let items: HashSet<String> = con.smembers(format!("uid:{}:items", uid))?;
     for name in items {
         let item: Vec<String> = con.lrange(format!("uid:{}:items:{}", uid, &name), 0, -1)?;
@@ -81,7 +131,12 @@ pub fn get(uid: &str, redis: &redis::Client) -> Result<HashMap<String, Value>, B
             "act" => act_it.push(Value::Object(out_item)),
             "gm" => gm_it.push(Value::Object(out_item)),
             "lt" => lt_it.push(Value::Object(out_item)),
-            "cls" => cls_it.push(Value::Object(out_item)),
+            "cls" => {
+                if clothes.contains(&name) {
+                    continue;
+                }
+                cls_it.push(Value::Object(out_item))
+            },
             _ => panic!("Wrong type")
         }
     }

@@ -67,6 +67,7 @@ impl House {
                 hs.insert("lt".to_owned(), Value::I32(0));
                 plr.insert("hs".to_owned(), Value::Object(hs));
                 plr.insert("inv".to_owned(), Value::Object(inventory::get(&client.uid, &client.redis)?));
+                plr.insert("cs".to_owned(), Value::Object(inventory::get_all_collections(&client.uid, &client.redis)?));
                 data.insert("plr".to_owned(), Value::Object(plr));
                 data.insert("tm".to_owned(), Value::I32(1));
             }
