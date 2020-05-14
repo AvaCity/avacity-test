@@ -179,7 +179,7 @@ impl Client {
                 self.uid = real_uid.clone();
                 let mut v: Vec<Value> = Vec::new();
                 v.push(Value::String(real_uid));
-                if version == 3 {
+                if version >= 3 {
                     v.push(Value::String("".to_owned()));
                 }
                 v.push(Value::Boolean(true));
