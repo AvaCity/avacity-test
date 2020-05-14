@@ -90,6 +90,10 @@ pub fn get_plr(uid: &str, player_data: &HashMap<String, PlayerData>,
         locinfo.insert("shlc".to_owned(), Value::Boolean(true));
         plr.insert("locinfo".to_owned(), Value::Object(locinfo));
     }
+    let role: i32 = con.get(format!("uid:{}:role", uid)).unwrap_or(0);
+    let mut usrinf = HashMap::new();
+    usrinf.insert("rl".to_owned(), Value::I32(role));
+    plr.insert("usrinf".to_owned(), Value::Object(usrinf));
     let mut ci = HashMap::new();
     let exp: i32 = con.get(format!("uid:{}:exp", uid)).unwrap_or(0);
     let crt: i32 = con.get(format!("uid:{}:crt", uid)).unwrap_or(0);
