@@ -17,8 +17,9 @@ use crate::modules::{Base, location};
 static XML: &'static str = "<?xml version=\"1.0\"?>
 <cross-domain-policy>
 <allow-access-from domain=\"*\" to-ports=\"*\" />
-</cross-domain-policy>";
-static STRING_END: &'static [u8] = &[0, 0];
+</cross-domain-policy>
+";
+static STRING_END: &'static [u8] = &[0];
 
 pub struct Client {
     pub stream: Mutex<TcpStream>,

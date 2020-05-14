@@ -36,13 +36,21 @@ pub enum Value {
     I64(i64),
     F64(f64),
     Vector(Vec<Value>),
-    Object(HashMap<String, Value>)
+    Object(HashMap<String, Value>),
+    Date(i64)
 }
 
 impl Value {
     pub fn get_vector(&self) -> Result<&Vec<Value>, &'static str> {
         if let Value::Vector(v) = self {
             return Ok(v);
+        } else {
+            return Err("Can't convert");
+        }
+    }
+    pub fn get_bool(&self) -> Result<bool, &'static str> {
+        if let Value::Boolean(v) = self {
+            return Ok(*v);
         } else {
             return Err("Can't convert");
         }

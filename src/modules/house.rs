@@ -4,7 +4,7 @@ use redis::Commands;
 use crate::client::Client;
 use crate::common::Value;
 use crate::inventory;
-use crate::modules::{Base, get_plr, notify, location};
+use crate::modules::{Base, get_plr, notify, location, campaign};
 
 pub struct House {
     pub prefix: &'static str,
@@ -53,10 +53,18 @@ impl House {
         }
     }
 
-    fn get_my_info(&self, client: &Client, _msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+    fn get_my_info(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
         let mut v: Vec<Value> = Vec::new();
         v.push(Value::String("h.minfo".to_owned()));
-        let mut data: HashMap<String, Value> = HashMap::new();
+        let mut out_data: HashMap<String, Value> = HashMap::new();
+        let data = msg[2].get_object()?;
+        let onl = data.get("onl").ok_or("err")?.get_bool()?;
+        if onl {
+            out_data.insert("scs".to_owned(), Value::Boolean(true));
+            v.push(Value::Object(out_data));
+            client.send(&v, 34)?;
+            return Ok(())
+        }
         let player_data = client.player_data.lock().unwrap();
         match get_plr(&client.uid, &player_data, &client.redis)? {
             Some(mut plr) => {
@@ -68,15 +76,16 @@ impl House {
                 plr.insert("hs".to_owned(), Value::Object(hs));
                 plr.insert("inv".to_owned(), Value::Object(inventory::get(&client.uid, &client.redis)?));
                 plr.insert("cs".to_owned(), Value::Object(inventory::get_all_collections(&client.uid, &client.redis)?));
-                data.insert("plr".to_owned(), Value::Object(plr));
-                data.insert("tm".to_owned(), Value::I32(1));
+                out_data.insert("plr".to_owned(), Value::Object(plr));
+                out_data.insert("tm".to_owned(), Value::I32(1));
             }
             None => {
-                data.insert("has.avtr".to_owned(), Value::Boolean(false));
+                out_data.insert("has.avtr".to_owned(), Value::Boolean(false));
             }
         }
-        v.push(Value::Object(data));
+        v.push(Value::Object(out_data));
         client.send(&v, 34)?;
+        campaign::new(client)?;
         Ok(())
     }
 

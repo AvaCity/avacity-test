@@ -64,6 +64,7 @@ fn decode_value(mut buffer: &mut Cursor<&[u8]>) -> Result<common::Value, Box<dyn
         5 => Ok(common::Value::String(decode_string(&mut buffer)?)),
         6 => Ok(common::Value::Object(decode_object(&mut buffer)?)),
         7 => Ok(common::Value::Vector(decode_vector(&mut buffer)?)),
+        8 => Ok(common::Value::Date(decode_int64(&mut buffer)?)),
         _ => Ok(common::Value::None)
     }
 }

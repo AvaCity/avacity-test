@@ -18,6 +18,7 @@ pub mod billing;
 pub mod notify;
 pub mod component;
 pub mod descriptor;
+pub mod campaign;
 
 pub trait Base: Send {
     fn handle(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>>;
@@ -94,6 +95,17 @@ pub fn get_plr(uid: &str, player_data: &HashMap<String, PlayerData>,
     let mut usrinf = HashMap::new();
     usrinf.insert("rl".to_owned(), Value::I32(role));
     plr.insert("usrinf".to_owned(), Value::Object(usrinf));
+    let mut professions = HashMap::new();
+    for item in &["jntr", "phtghr", "grdnr", "vsgst"] {
+        let mut out = HashMap::new();
+        out.insert("tp".to_owned(), Value::String(item.to_string()));
+        out.insert("l".to_owned(), Value::I32(20));
+        out.insert("pgs".to_owned(), Value::I32(0));
+        professions.insert(item.to_string(), Value::Object(out));
+    }
+    let mut pf = HashMap::new();
+    pf.insert("pf".to_owned(), Value::Object(professions));
+    plr.insert("pf".to_owned(), Value::Object(pf));
     let mut ci = HashMap::new();
     let exp: i32 = con.get(format!("uid:{}:exp", uid)).unwrap_or(0);
     let crt: i32 = con.get(format!("uid:{}:crt", uid)).unwrap_or(0);

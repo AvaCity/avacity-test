@@ -23,6 +23,7 @@ pub fn encode_value(item: &common::Value) -> Result<Vec<u8>, &'static str> {
         common::Value::Vector(v) => return Ok(encode_vector(v)),
         common::Value::String(v) => return Ok(encode_string(v, false)),
         common::Value::Object(v) => return Ok(encode_object(v)),
+        common::Value::Date(v) => return Ok(encode_date(*v)),
         _ => return Err("Type not found"),
     };
 }
@@ -96,5 +97,12 @@ pub fn encode_vector(data: &Vec<common::Value>) -> Vec<u8> {
     for item in data {
         out.put(&encode_value(&item).unwrap()[..]);
     }
+    return out[..].to_vec();
+}
+
+pub fn encode_date(item: i64) -> Vec<u8> {
+    let mut out = BytesMut::new();
+    out.put_u8(8);
+    out.put_i64(item);
     return out[..].to_vec();
 }
