@@ -27,6 +27,7 @@ impl Descriptor {
         locations.push(self.ballroom());
         locations.push(self.canyon());
         locations.push(self.salon());
+        locations.push(self.photo_salon());
         locations.push(self.couturier());
         locations.push(self.ski_resort());
         locations.push(self.wedding_beach());
@@ -236,6 +237,25 @@ impl Descriptor {
         first.insert("uc".to_owned(), Value::String("salon_1_map".to_owned()));
         first.insert("dc".to_owned(), Value::String("outside".to_owned()));
         first.insert("ml".to_owned(), Value::I32(6));
+        first.insert("bgs".to_owned(), Value::String("cafe1".to_owned()));
+        rooms.push(Value::Object(first));
+        out.insert("rms".to_owned(), Value::Vector(rooms));
+        return Value::Object(out)
+    }
+
+    fn photo_salon(&self) -> Value {
+        let mut out = HashMap::new();
+        out.insert("id".to_owned(), Value::String("photoSalon".to_owned()));
+        out.insert("zid".to_owned(), Value::String("street".to_owned()));
+        out.insert("drid".to_owned(), Value::String("psn1".to_owned()));
+        out.insert("ldc".to_owned(), Value::String("photoSalon".to_owned()));
+        let mut rooms = Vec::new();
+        let mut first = HashMap::new();
+        first.insert("id".to_owned(), Value::String("psn1".to_owned()));
+        first.insert("vip".to_owned(), Value::Boolean(false));
+        first.insert("uc".to_owned(), Value::String("photo_salon_1_map".to_owned()));
+        first.insert("dc".to_owned(), Value::String("outside".to_owned()));
+        first.insert("ml".to_owned(), Value::I32(0));
         first.insert("bgs".to_owned(), Value::String("cafe1".to_owned()));
         rooms.push(Value::Object(first));
         out.insert("rms".to_owned(), Value::Vector(rooms));
