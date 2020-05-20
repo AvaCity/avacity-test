@@ -35,7 +35,7 @@ impl Component {
             return Ok(())
         }
         let room_name = data.get("rid").ok_or("err")?.get_string()?;
-        let player_data = client.player_data.lock().unwrap();
+        let player_data = client.player_data.read().unwrap();
         let mut v = Vec::new();
         v.push(Value::String("cp.cht.sm".to_owned()));
         v.push(msg[2].clone());

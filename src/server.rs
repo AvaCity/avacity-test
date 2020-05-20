@@ -1,4 +1,4 @@
-use std::sync::{Mutex, Arc};
+use std::sync::{RwLock, Arc};
 use std::collections::HashMap;
 use std::net::TcpListener;
 use std::thread;
@@ -7,8 +7,8 @@ use crate::common::PlayerData;
 use crate::modules::{Base, house, outside, avatar, billing, component, descriptor};
 
 pub struct Server {
-    pub modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>,
-    pub player_data: Arc<Mutex<HashMap<String, PlayerData>>>
+    pub modules: Arc<RwLock<HashMap<String, Box<dyn Base>>>>,
+    pub player_data: Arc<RwLock<HashMap<String, PlayerData>>>
 }
 
 impl Server {
@@ -26,9 +26,9 @@ impl Server {
     }
 
     pub fn new() -> Server {
-        let player_data = Arc::new(Mutex::new(HashMap::new()));
-        let modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>> = Arc::new(Mutex::new(HashMap::new()));
-        let mut lock = modules.lock().unwrap();
+        let player_data = Arc::new(RwLock::new(HashMap::new()));
+        let modules: Arc<RwLock<HashMap<String, Box<dyn Base>>>> = Arc::new(RwLock::new(HashMap::new()));
+        let mut lock = modules.write().unwrap();
         let module = house::House::new();
         lock.insert(module.prefix.to_owned(), Box::new(module));
         let module = avatar::Avatar::new();

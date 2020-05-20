@@ -3,7 +3,7 @@ extern crate redis;
 use std::collections::HashMap;
 use std::error::Error;
 use std::io::{Read, Write, Cursor};
-use std::sync::{Mutex, Arc};
+use std::sync::{Mutex, RwLock, Arc};
 use std::net::{TcpStream, Shutdown};
 use bytes::{BytesMut, BufMut};
 use crc::{crc32, Hasher32};
@@ -24,8 +24,8 @@ static STRING_END: &'static [u8] = &[0];
 pub struct Client {
     pub stream: Mutex<TcpStream>,
     pub uid: String,
-    pub modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>,
-    pub player_data: Arc<Mutex<HashMap<String, PlayerData>>>,
+    pub modules: Arc<RwLock<HashMap<String, Box<dyn Base>>>>,
+    pub player_data: Arc<RwLock<HashMap<String, PlayerData>>>,
     pub redis: redis::Client,
     pub encrypted: bool,
     pub compressed: bool,
@@ -92,7 +92,7 @@ impl Client {
                     let tmp = msg[1].get_string().unwrap();
                     let splitted: Vec<&str> = tmp.split(".").collect();
                     let module_name = splitted[0].to_owned();
-                    let lock = self.modules.lock().unwrap();
+                    let lock = self.modules.read().unwrap();
                     if !lock.contains_key(&module_name) {
                         println!("Command {} not found", tmp);
                         continue;
@@ -108,7 +108,7 @@ impl Client {
         }
         println!("drop connection");
         location::leave_room(self).ok();
-        let mut player_data = self.player_data.lock().unwrap();
+        let mut player_data = self.player_data.write().unwrap();
         if player_data.contains_key(&self.uid) {
             player_data.remove(&self.uid);
         }
@@ -166,7 +166,7 @@ impl Client {
                     lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
                     return Ok(())
                 }
-                let mut player_data = self.player_data.lock().unwrap();
+                let mut player_data = self.player_data.write().unwrap();
                 if player_data.contains_key(&real_uid) {
                     let lock = self.stream.lock().unwrap();
                     lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
@@ -200,8 +200,8 @@ impl Client {
         Ok(())
     }
 
-    pub fn new(stream: TcpStream, modules: Arc<Mutex<HashMap<String, Box<dyn Base>>>>,
-               player_data: Arc<Mutex<HashMap<String, PlayerData>>>) -> Client {
+    pub fn new(stream: TcpStream, modules: Arc<RwLock<HashMap<String, Box<dyn Base>>>>,
+               player_data: Arc<RwLock<HashMap<String, PlayerData>>>) -> Client {
         Client {
             stream: Mutex::new(stream),
             uid: String::from("0"),

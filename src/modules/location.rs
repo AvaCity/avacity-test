@@ -15,7 +15,7 @@ pub fn get_prefix(room: &str) -> &'static str {
 }
 
 pub fn join_room(client: &Client, room: &str) -> Result<(), Box<dyn Error>> {
-    let mut player_data = client.player_data.lock().unwrap();
+    let mut player_data = client.player_data.write().unwrap();
     let mut current_player = player_data.get_mut(&client.uid).ok_or("Can't get mut")?;
     let prefix = get_prefix(&room);
     current_player.room = room.to_owned();
@@ -42,7 +42,7 @@ pub fn join_room(client: &Client, room: &str) -> Result<(), Box<dyn Error>> {
 }
 
 pub fn leave_room(client: &Client) -> Result<(), Box<dyn Error>> {
-    let mut player_data = client.player_data.lock().unwrap();
+    let mut player_data = client.player_data.write().unwrap();
     let mut current_player = player_data.get_mut(&client.uid).ok_or("Can't get mut")?;
     if current_player.room.is_empty() {
         return Ok(())
@@ -74,7 +74,7 @@ pub fn room(client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
     let command = splitted[2];
     match command {
         "ra" => {
-            let player_data = client.player_data.lock().unwrap();
+            let player_data = client.player_data.read().unwrap();
             refresh_avatar(&client.uid, msg[0].get_string()?.as_str(),
                            &player_data, &client.redis)?
         },
@@ -122,7 +122,7 @@ fn update_state(client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>>
     else {
         action_tag = "".to_owned();
     }
-    let mut player_data = client.player_data.lock().unwrap();
+    let mut player_data = client.player_data.write().unwrap();
     let mut current_player = player_data.get_mut(&client.uid).ok_or("Can't get mut")?;
     current_player.position = [x, y];
     current_player.direction = direction;
@@ -154,7 +154,7 @@ fn action(client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
     let mut v = Vec::new();
     v.push(msg[1].clone());
     v.push(msg[2].clone());
-    let player_data = client.player_data.lock().unwrap();
+    let player_data = client.player_data.read().unwrap();
     for player_uid in player_data.keys() {
         if player_uid == &client.uid {
             continue;

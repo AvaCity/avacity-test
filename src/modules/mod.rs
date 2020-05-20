@@ -20,7 +20,7 @@ pub mod component;
 pub mod descriptor;
 pub mod campaign;
 
-pub trait Base: Send {
+pub trait Base: Send+Sync {
     fn handle(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>>;
 }
 

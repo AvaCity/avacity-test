@@ -28,7 +28,7 @@ impl Outside {
             room_name = format!("{}_{}_{}", lid, gid, num);
         }
         else {
-            let player_data = client.player_data.lock().unwrap();
+            let player_data = client.player_data.read().unwrap();
             let mut players_count = 0;
             num = 1;
             loop {
@@ -70,7 +70,7 @@ impl Outside {
     fn room_info(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
         let room_name = msg[0].get_string()?;
         let mut rmmb = Vec::new();
-        let player_data = client.player_data.lock().unwrap();
+        let player_data = client.player_data.read().unwrap();
         for player_uid in player_data.keys() {
             let player = player_data.get(&player_uid.clone()).ok_or("player not found")?;
             if player.room == room_name {

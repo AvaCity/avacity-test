@@ -65,7 +65,7 @@ impl House {
             client.send(&v, 34)?;
             return Ok(())
         }
-        let player_data = client.player_data.lock().unwrap();
+        let player_data = client.player_data.read().unwrap();
         match get_plr(&client.uid, &player_data, &client.redis)? {
             Some(mut plr) => {
                 let res = notify::get_res(&client.uid, &client.redis)?;
@@ -124,7 +124,7 @@ impl House {
         let room = get_room(&uid, &rid, &client.redis)?;
         let room_name = format!("house_{}_{}", &uid, &rid);
         let mut rmmb = Vec::new();
-        let player_data = client.player_data.lock().unwrap();
+        let player_data = client.player_data.read().unwrap();
         for player_uid in player_data.keys() {
             let player = player_data.get(&player_uid.clone()).ok_or("player not found")?;
             if player.room == room_name {
