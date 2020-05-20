@@ -232,7 +232,7 @@ impl Descriptor {
         out.insert("ldc".to_owned(), Value::String("salon".to_owned()));
         let mut rooms = Vec::new();
         let mut first = HashMap::new();
-        first.insert("id".to_owned(), Value::String("br1".to_owned()));
+        first.insert("id".to_owned(), Value::String("sn1".to_owned()));
         first.insert("vip".to_owned(), Value::Boolean(false));
         first.insert("uc".to_owned(), Value::String("salon_1_map".to_owned()));
         first.insert("dc".to_owned(), Value::String("outside".to_owned()));
