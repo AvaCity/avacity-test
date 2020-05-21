@@ -6,6 +6,7 @@ mod server;
 mod common;
 mod errors;
 mod base_messages;
+mod parser;
 mod modules;
 use server::Server;
 

@@ -4,18 +4,33 @@ use redis::Commands;
 use crate::common::Value;
 use crate::client::Client;
 use crate::inventory;
-use crate::modules::{Base, get_appearance};
+use crate::parser;
+use crate::modules::{Base, get_appearance, notify::get_res};
 
 const COLLECTIONS: &'static [&'static str] = &["casual", "club", "official", "swimwear", "underdress"];
 
+pub struct Cloth {
+    pub name: String,
+    pub category: String,
+    pub gold: i32,
+    pub silver: i32,
+    pub rating: i32,
+}
+
 pub struct Avatar {
-    pub prefix: &'static str
+    pub prefix: &'static str,
+    pub boy_clothes: HashMap<String, Cloth>,
+    pub girl_clothes: HashMap<String, Cloth>
 }
 
 impl Avatar {
     pub fn new() -> Avatar {
+        let boy_clothes = parser::parse_clothes("boy");
+        let girl_clothes = parser::parse_clothes("girl");
         Avatar {
-            prefix: "a"
+            prefix: "a",
+            boy_clothes: boy_clothes,
+            girl_clothes: girl_clothes
         }
     }
  
@@ -111,6 +126,7 @@ impl Avatar {
         let command = splitted[2];
         match command {
             "wear" => self.wear_clothes(client, msg)?,
+            "buy" => self.buy_clothes(client, msg)?,
             _ => println!("Command {} not found", tmp)
         }
         Ok(())
@@ -161,6 +177,49 @@ impl Avatar {
         let mut v = Vec::new();
         v.push(Value::String("a.clths.wear".to_owned()));
         v.push(Value::Object(data));
+        client.send(&v, 34)?;
+        Ok(())
+    }
+
+    fn buy_clothes(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+        let data = msg[2].get_object()?;
+        let tpid = data.get("tpid").ok_or("err")?.get_string()?;
+        let collection = data.get("ctp").ok_or("err")?.get_string()?;
+        let cloth_list = match client.get_gender()? {
+            "boy" => &self.boy_clothes,
+            "girl" => &self.girl_clothes,
+            _ => return Err(Box::from("Gender not found"))
+        };
+        if !cloth_list.contains_key(&tpid) {
+            println!("{} not found in clothes list", &tpid);
+            return Ok(())
+        }
+        let to_buy = cloth_list.get(&tpid).unwrap();
+        let mut con = client.redis.get_connection()?;
+        let gold: i32 = con.get(format!("uid:{}:gld", &client.uid))?;
+        let silver: i32 = con.get(format!("uid:{}:slvr", &client.uid))?;
+        if to_buy.gold > gold || to_buy.silver > silver {
+            return Ok(())
+        }
+        let _: () = con.set(format!("uid:{}:wearing", &client.uid), &collection)?;
+        let _: () = con.incr(format!("uid:{}:gld", &client.uid), -to_buy.gold)?;
+        let _: () = con.incr(format!("uid:{}:slvr", &client.uid), -to_buy.silver)?;
+        inventory::add_item(&client.redis, &client.uid, &to_buy.name, "cls", 1)?;
+        inventory::set_wearing(&client.redis, &client.uid, &to_buy.name, true)?;
+        let res = get_res(&client.uid, &client.redis)?;
+        let inv = inventory::get(&client.uid, &client.redis)?;
+        let clths = inventory::get_clths(&client.uid, &client.redis)?;
+        let ccltn = inventory::get_collection(&client.uid, &client.redis)?;
+        let crt: i32 = con.get(format!("uid:{}:crt", &client.uid)).unwrap_or(0);
+        let mut out_data = HashMap::new();
+        out_data.insert("inv".to_owned(), Value::Object(inv));
+        out_data.insert("res".to_owned(), Value::Object(res));
+        out_data.insert("clths".to_owned(), Value::Object(clths));
+        out_data.insert("ccltn".to_owned(), Value::Object(ccltn));
+        out_data.insert("crt".to_owned(), Value::I32(crt));
+        let mut v = Vec::new();
+        v.push(Value::String("a.clths.buy".to_owned()));
+        v.push(Value::Object(out_data));
         client.send(&v, 34)?;
         Ok(())
     }

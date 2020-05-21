@@ -200,6 +200,16 @@ impl Client {
         Ok(())
     }
 
+    pub fn get_gender(&self) -> Result<&str, Box<dyn Error>> {
+        let mut con = self.redis.get_connection()?;
+        let gender: i32 = con.lindex(format!("uid:{}:appearance", self.uid), 2)?;
+        match gender {
+            1 => Ok("boy"),
+            2 => Ok("girl"),
+            _ => Err(Box::from("wrong gender"))
+        }
+    }
+
     pub fn new(stream: TcpStream, modules: Arc<RwLock<HashMap<String, Box<dyn Base>>>>,
                player_data: Arc<RwLock<HashMap<String, PlayerData>>>) -> Client {
         Client {

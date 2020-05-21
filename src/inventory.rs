@@ -88,7 +88,7 @@ pub fn get_all_collections(uid: &str, redis: &redis::Client) -> Result<HashMap<S
 pub fn get_collection(uid: &str, redis: &redis::Client) -> Result<HashMap<String, Value>, Box<dyn Error>> {
     let mut con = redis.get_connection()?;
     let collection: String = con.get(format!("uid:{}:wearing", uid))?;
-    let clothes: HashSet<String> = con.smembers(format!("uid:{}:{}", uid, collection))?;
+    let clothes: HashSet<String> = con.smembers(format!("uid:{}:{}", uid, &collection))?;
     let mut cct = Vec::new();
     for cloth in clothes {
         let splitted: Vec<&str> = cloth.split("_").collect();
@@ -101,6 +101,8 @@ pub fn get_collection(uid: &str, redis: &redis::Client) -> Result<HashMap<String
     }
     let mut out = HashMap::new();
     out.insert("cct".to_owned(), Value::Vector(cct));
+    out.insert("ctp".to_owned(), Value::String(collection));
+    out.insert("cn".to_owned(), Value::String("".to_owned()));
     Ok(out)
 }
 
