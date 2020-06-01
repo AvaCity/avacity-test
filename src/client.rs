@@ -100,7 +100,9 @@ impl Client {
                     let module = lock.get(&module_name).unwrap();
                     match module.handle(self, msg) {
                         Ok(()) => {},
-                        Err(error) => println!("Error: {:?}", error)
+                        Err(error) => {
+                            println!("Error: {}", error);
+                        } 
                     }
                 }
             }

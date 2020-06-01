@@ -19,14 +19,45 @@ pub fn set_wearing(redis: &redis::Client, uid: &str, item: &str, wearing: bool) 
 }
 
 pub fn add_item(redis: &redis::Client, uid: &str, item: &str, type_: &str, count: i32) -> Result<(), Box<dyn Error>> {
-    if type_ == "cls".to_owned() && get_item(redis, uid, item)?.is_some() {
-        return Ok(());
-    }
     let mut con = redis.get_connection()?;
-    let _: () = con.sadd(format!("uid:{}:items", uid), item)?;
-    let _: () = con.rpush(format!("uid:{}:items:{}", uid, item), type_)?;
-    let _: () = con.rpush(format!("uid:{}:items:{}", uid, item), count)?;
+    let have_count: Option<i32> = get_item(redis, uid, item)?;
+    match have_count {
+        Some(v) => {
+            if type_ == "cls".to_owned() {
+                return Ok(());
+            }
+            let _: () = con.lset(format!("uid:{}:items:{}", uid, item), 1, v+count)?;
+        }
+        None => {
+            let _: () = con.sadd(format!("uid:{}:items", uid), item)?;
+            let _: () = con.rpush(format!("uid:{}:items:{}", uid, item), type_)?;
+            let _: () = con.rpush(format!("uid:{}:items:{}", uid, item), count)?;
+        }
+    }
     Ok(())
+}
+
+pub fn take_item(redis: &redis::Client, uid: &str, item: &str, count: i32) -> Result<bool, Box<dyn Error>> {
+    let mut con = redis.get_connection()?;
+    let have_count: Option<i32> = get_item(redis, uid, item)?;
+    match have_count {
+        Some(v) => {
+            if v < count {
+                return Ok(false)
+            }
+            if v-count == 0 {
+                let _: () = con.del(format!("uid:{}:items:{}", uid, item))?;
+                let _: () = con.srem(format!("uid:{}:items", uid), item)?;
+            }
+            else {
+                let _: () = con.lset(format!("uid:{}:items:{}", uid, item), 1, v-count)?;
+            }
+            return Ok(true)
+        },
+        None => {
+            return Ok(false)
+        }
+    }
 }
 
 pub fn get_item(redis: &redis::Client, uid: &str, item: &str) -> Result<Option<i32>, Box<dyn Error>> {

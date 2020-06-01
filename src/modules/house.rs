@@ -4,7 +4,7 @@ use redis::Commands;
 use crate::client::Client;
 use crate::common::Value;
 use crate::inventory;
-use crate::modules::{Base, get_plr, notify, location, campaign};
+use crate::modules::{Base, get_plr, notify, location, campaign, send_to};
 
 pub struct House {
     pub prefix: &'static str,
@@ -32,14 +32,15 @@ pub fn get_room(uid: &str, room: &str, redis: &redis::Client) -> Result<HashMap<
     let items: HashSet<String> = con.smembers(format!("rooms:{}:{}:items", uid, room))?;
     let mut room_items = Vec::new();
     for item in items {
-        let data: HashMap<String, String> = con.hgetall(format!("rooms:{}:{}:items:{}", uid, room, &item))?;
+        let data: Vec<String> = con.lrange(format!("rooms:{}:{}:items:{}", uid, room, &item), 0, -1)?;
         let mut out_item: HashMap<String, Value> = HashMap::new();
         let splitted: Vec<&str> = item.split("_").collect();
         out_item.insert("tpid".to_owned(), Value::String(splitted[0].to_owned()));
         out_item.insert("lid".to_owned(), Value::I32(splitted[1].parse::<i32>()?));
-        for key in data.keys() {
-            out_item.insert(key.clone(), Value::String(data.get(key).ok_or("key not found")?.clone()));
-        }
+        out_item.insert("x".to_owned(), Value::F64(data[0].parse::<f64>()?));
+        out_item.insert("y".to_owned(), Value::F64(data[1].parse::<f64>()?));
+        out_item.insert("z".to_owned(), Value::F64(data[2].parse::<f64>()?));
+        out_item.insert("d".to_owned(), Value::I32(data[3].parse::<i32>()?));
         room_items.push(Value::Object(out_item));
     }
     out_room.insert("f".to_owned(), Value::Vector(room_items));
@@ -76,6 +77,20 @@ impl House {
                 plr.insert("hs".to_owned(), Value::Object(hs));
                 plr.insert("inv".to_owned(), Value::Object(inventory::get(&client.uid, &client.redis)?));
                 plr.insert("cs".to_owned(), Value::Object(inventory::get_all_collections(&client.uid, &client.redis)?));
+                /*let modules = client.modules.read().unwrap();
+                let module: &Box<passport::Passport> = modules.get("psp").unwrap();
+                let mut tr = HashMap::new();
+                for trophy in &module.trophies {
+                    let mut item = HashMap::new();
+                    item.insert("trrt".to_owned(), Value::I32(0));
+                    item.insert("trcd".to_owned(), Value::I32(0));
+                    item.insert("trid".to_owned(), Value::String(trophy.to_owned()));
+                    tr.insert(trophy.to_owned(), Value::Object(item));
+                }
+                let mut achc = HashMap::new();
+                achc.insert("ac".to_owned(), Value::Object(HashMap::new()));
+                achc.insert("tr".to_owned(), Value::Object(tr));
+                plr.insert("achc".to_owned(), Value::Object(achc));*/
                 out_data.insert("plr".to_owned(), Value::Object(plr));
                 out_data.insert("tm".to_owned(), Value::I32(1));
             }
@@ -112,6 +127,7 @@ impl House {
         let command = splitted[2];
         match command {
             "info" => self.room_info(client, msg)?,
+            "rfr" => self.room_refresh(client, msg)?,
             _ => location::room(client, msg)?
         }
         Ok(())
@@ -142,6 +158,25 @@ impl House {
         v.push(Value::String("h.r.info".to_owned()));
         v.push(Value::Object(out_data));
         client.send(&v, 34)?;
+        Ok(())
+    }
+
+    fn room_refresh(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+        let room_name = msg[0].get_string()?;
+        let splitted: Vec<&str> = room_name.split("_").collect();
+        let room = get_room(&client.uid, &splitted[2], &client.redis)?;
+        let mut out_data = HashMap::new();
+        out_data.insert("rm".to_owned(), Value::Object(room));
+        let mut v = Vec::new();
+        v.push(Value::String("h.r.rfr".to_owned()));
+        v.push(Value::Object(out_data));
+        let player_data = client.player_data.read().unwrap();
+        for player_uid in player_data.keys() {
+            let player = player_data.get(&player_uid.clone()).ok_or("player not found")?;
+            if player.room == room_name {
+                send_to(&player.stream, &v, 34)?;
+            }
+        }
         Ok(())
     }
 }

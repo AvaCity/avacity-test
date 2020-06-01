@@ -4,10 +4,10 @@ use std::net::TcpListener;
 use std::thread;
 use crate::client::Client;
 use crate::common::PlayerData;
-use crate::modules::{Base, house, outside, avatar, billing, component, descriptor};
+use crate::modules;
 
 pub struct Server {
-    pub modules: Arc<RwLock<HashMap<String, Box<dyn Base>>>>,
+    pub modules: Arc<RwLock<HashMap<String, Box<dyn modules::Base>>>>,
     pub player_data: Arc<RwLock<HashMap<String, PlayerData>>>
 }
 
@@ -27,19 +27,21 @@ impl Server {
 
     pub fn new() -> Server {
         let player_data = Arc::new(RwLock::new(HashMap::new()));
-        let modules: Arc<RwLock<HashMap<String, Box<dyn Base>>>> = Arc::new(RwLock::new(HashMap::new()));
+        let modules: Arc<RwLock<HashMap<String, Box<dyn modules::Base>>>> = Arc::new(RwLock::new(HashMap::new()));
         let mut lock = modules.write().unwrap();
-        let module = house::House::new();
+        let module = modules::house::House::new();
         lock.insert(module.prefix.to_owned(), Box::new(module));
-        let module = avatar::Avatar::new();
+        let module = modules::avatar::Avatar::new();
         lock.insert(module.prefix.to_owned(), Box::new(module));
-        let module = billing::Billing::new();
+        let module = modules::billing::Billing::new();
         lock.insert(module.prefix.to_owned(), Box::new(module));
-        let module = outside::Outside::new();
+        let module = modules::outside::Outside::new();
         lock.insert(module.prefix.to_owned(), Box::new(module));
-        let module = component::Component::new();
+        let module = modules::component::Component::new();
         lock.insert(module.prefix.to_owned(), Box::new(module));
-        let module = descriptor::Descriptor::new();
+        let module = modules::descriptor::Descriptor::new();
+        lock.insert(module.prefix.to_owned(), Box::new(module));
+        let module = modules::furniture::Furniture::new();
         lock.insert(module.prefix.to_owned(), Box::new(module));
         drop(lock);
         Server {

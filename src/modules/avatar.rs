@@ -9,18 +9,11 @@ use crate::modules::{Base, get_appearance, notify::get_res};
 
 const COLLECTIONS: &'static [&'static str] = &["casual", "club", "official", "swimwear", "underdress"];
 
-pub struct Cloth {
-    pub name: String,
-    pub category: String,
-    pub gold: i32,
-    pub silver: i32,
-    pub rating: i32,
-}
 
 pub struct Avatar {
     pub prefix: &'static str,
-    pub boy_clothes: HashMap<String, Cloth>,
-    pub girl_clothes: HashMap<String, Cloth>
+    pub boy_clothes: HashMap<String, parser::Item>,
+    pub girl_clothes: HashMap<String, parser::Item>
 }
 
 impl Avatar {

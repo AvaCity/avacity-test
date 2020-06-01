@@ -72,6 +72,9 @@ impl Value {
     pub fn get_f64(&self) -> Result<f64, &'static str> {
         if let Value::F64(v) = self {
             return Ok(*v);
+        }
+        else if let Value::I32(v) = self {
+            return Ok(*v as f64);
         } else {
             return Err("Can't convert");
         }
