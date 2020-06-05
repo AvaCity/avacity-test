@@ -104,6 +104,41 @@ impl House {
         Ok(())
     }
 
+    fn get_owner_info(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+        let data = msg[2].get_object()?;
+        let uid = data.get("uid").ok_or("err")?.get_string()?;
+        let player_data = client.player_data.read().unwrap();
+        let plr = get_plr(&uid, &player_data, &client.redis)?.ok_or("err")?;
+        let mut hs = HashMap::new();
+        hs.insert("r".to_owned(), Value::Vector(get_all_rooms(&uid, &client.redis)?));
+        hs.insert("lt".to_owned(), Value::I32(0));
+        let mut out_data = HashMap::new();
+        out_data.insert("ath".to_owned(), Value::Boolean(false));
+        out_data.insert("plr".to_owned(), Value::Object(plr));
+        out_data.insert("hs".to_owned(), Value::Object(hs));
+        let mut v = Vec::new();
+        v.push(Value::String("h.oinfo".to_owned()));
+        v.push(Value::Object(out_data));
+        client.send(&v, 34)?;
+        Ok(())
+    }
+
+    fn init_owner_info(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+        let data = msg[2].get_object()?;
+        let uid = data.get("uid").ok_or("err")?.get_string()?;
+        let player_data = client.player_data.read().unwrap();
+        let plr = get_plr(&uid, &player_data, &client.redis)?.ok_or("err")?;
+        let mut out_data = HashMap::new();
+        out_data.insert("ath".to_owned(), Value::Boolean(false));
+        out_data.insert("plr".to_owned(), Value::Object(plr));
+        out_data.insert("tids".to_owned(), Value::Vector(Vec::new()));
+        let mut v = Vec::new();
+        v.push(Value::String("h.ioinfo".to_owned()));
+        v.push(Value::Object(out_data));
+        client.send(&v, 34)?;
+        Ok(())
+    }
+
     fn get_room(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
         let data = msg[2].get_object()?;
         let lid = data.get("lid").ok_or("key not found")?.get_string()?;
@@ -188,6 +223,8 @@ impl Base for House {
         let command = splitted[1];
         match command {
             "minfo" => self.get_my_info(client, msg)?,
+            "oinfo" => self.get_owner_info(client, msg)?,
+            "ioinfo" => self.init_owner_info(client, msg)?,
             "gr" => self.get_room(client, msg)?,
             "r" => self.room(client, msg)?,
             _ => println!("Command {} not found", tmp)
