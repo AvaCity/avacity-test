@@ -224,6 +224,26 @@ impl Furniture {
         client.send(&v, 34)?;
         Ok(())
     }
+
+    fn rename_room(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+        let data = msg[2].get_object()?;
+        let id = data.get("id").ok_or("err")?.get_string()?;
+        let name = data.get("nm").ok_or("err")?.get_string()?;
+        let mut con = client.redis.get_connection()?;
+        let rooms: HashSet<String> = con.smembers(format!("rooms:{}", &client.uid))?;
+        if !rooms.contains(&id) {
+            return Err(Box::from(format!("Room {} not found for {}", &id, &client.uid)))
+        }
+        let _: () = con.lset(format!("rooms:{}:{}", &client.uid, &id), 0, &name)?;
+        let mut out_data = HashMap::new();
+        out_data.insert("id".to_owned(), Value::String(id));
+        out_data.insert("nm".to_owned(), Value::String(name));
+        let mut v = Vec::new();
+        v.push(Value::String("frn.rnmrm".to_owned()));
+        v.push(Value::Object(out_data));
+        client.send(&v, 34)?;
+        Ok(())
+    }
 }
 
 impl Base for Furniture {
@@ -234,6 +254,7 @@ impl Base for Furniture {
         match command {
             "save" => self.save(client, msg)?,
             "buy" => self.buy(client, msg)?,
+            "rnmrm" => self.rename_room(client, msg)?,
             _ => println!("Command {} not found", tmp)
         }
         Ok(())
