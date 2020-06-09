@@ -13,6 +13,13 @@ pub struct Item {
     pub rating: i32,
 }
 
+pub fn parse_all_clothes() -> HashMap<String, HashMap<String, Item>> {
+    let mut out = HashMap::new();
+    out.insert("boy".to_owned(), parse_clothes("boy"));
+    out.insert("girl".to_owned(), parse_clothes("girl"));
+    return out;
+}
+
 pub fn parse_clothes(gender: &str) -> HashMap<String, Item> {
     let mut file = File::open(format!("config/inventory/{}Clothes.xml", &gender)).expect("Can't open cloth file");
     let mut xml = String::new();

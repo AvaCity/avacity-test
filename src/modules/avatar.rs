@@ -9,21 +9,19 @@ use crate::modules::{Base, get_appearance, notify::get_res};
 
 const COLLECTIONS: &'static [&'static str] = &["casual", "club", "official", "swimwear", "underdress"];
 
+lazy_static! {
+    static ref CLOTHES: HashMap<String, HashMap<String, parser::Item>> = parser::parse_all_clothes();
+}
+
 
 pub struct Avatar {
     pub prefix: &'static str,
-    pub boy_clothes: HashMap<String, parser::Item>,
-    pub girl_clothes: HashMap<String, parser::Item>
 }
 
 impl Avatar {
     pub fn new() -> Avatar {
-        let boy_clothes = parser::parse_clothes("boy");
-        let girl_clothes = parser::parse_clothes("girl");
         Avatar {
             prefix: "a",
-            boy_clothes: boy_clothes,
-            girl_clothes: girl_clothes
         }
     }
  
@@ -192,8 +190,8 @@ impl Avatar {
 
     fn buy_clothes(&self, client: &Client, clothes: &Vec<Value>, collection: &str, command: &str) -> Result<(), Box<dyn Error>> {
         let cloth_list = match client.get_gender()? {
-            "boy" => &self.boy_clothes,
-            "girl" => &self.girl_clothes,
+            "boy" => CLOTHES.get("boy").unwrap(),
+            "girl" => CLOTHES.get("girl").unwrap(),
             _ => return Err(Box::from("Gender not found"))
         };
         let mut con = client.redis.get_connection()?;

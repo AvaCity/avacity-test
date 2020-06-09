@@ -12,3 +12,4 @@ crc = "1.8.1"
 bytes = "0.5.4"
 redis = { version = "0.16.0", default-features = false }
 roxmltree = "0.11.0"
+lazy_static = "1.4.0"
