@@ -119,7 +119,23 @@ impl Avatar {
         let command = splitted[2];
         match command {
             "wear" => self.wear_clothes(client, msg)?,
-            "buy" => self.buy_clothes(client, msg)?,
+            "buy" => {
+                let data = msg[2].get_object()?;
+                let mut clothes = Vec::new();
+                let mut cloth = HashMap::new();
+                let tpid = data.get("tpid").ok_or("err")?;
+                cloth.insert("tpid".to_owned(), tpid.clone());
+                cloth.insert("clid".to_owned(), Value::None);
+                clothes.push(Value::Object(cloth));
+                let collection = data.get("ctp").ok_or("err")?.get_string()?;
+                self.buy_clothes(client, &clothes, &collection, command)?;
+            },
+            "bcc" => {
+                let data = msg[2].get_object()?;
+                let clothes = data.get("clths").ok_or("err")?.get_vector()?;
+                let collection = data.get("ctp").ok_or("err")?.get_string()?;
+                self.buy_clothes(client, &clothes, &collection, command)?;
+            },
             _ => println!("Command {} not found", tmp)
         }
         Ok(())
@@ -174,31 +190,55 @@ impl Avatar {
         Ok(())
     }
 
-    fn buy_clothes(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
-        let data = msg[2].get_object()?;
-        let tpid = data.get("tpid").ok_or("err")?.get_string()?;
-        let collection = data.get("ctp").ok_or("err")?.get_string()?;
+    fn buy_clothes(&self, client: &Client, clothes: &Vec<Value>, collection: &str, command: &str) -> Result<(), Box<dyn Error>> {
         let cloth_list = match client.get_gender()? {
             "boy" => &self.boy_clothes,
             "girl" => &self.girl_clothes,
             _ => return Err(Box::from("Gender not found"))
         };
-        if !cloth_list.contains_key(&tpid) {
-            println!("{} not found in clothes list", &tpid);
-            return Ok(())
-        }
-        let to_buy = cloth_list.get(&tpid).unwrap();
         let mut con = client.redis.get_connection()?;
-        let gold: i32 = con.get(format!("uid:{}:gld", &client.uid))?;
-        let silver: i32 = con.get(format!("uid:{}:slvr", &client.uid))?;
-        if to_buy.gold > gold || to_buy.silver > silver {
+        let items: HashSet<String> = con.smembers(format!("uid:{}:items", &client.uid))?;
+        let mut to_add = Vec::new();
+        let mut gold = 0;
+        let mut silver = 0;
+        let mut rating = 0;
+        for item in clothes {
+            let object = item.get_object()?;
+            let tpid = object.get("tpid").ok_or("err")?.get_string()?;
+            let clid = object.get("clid").ok_or("err")?;
+            let mut name = tpid.clone();
+            if let Value::String(v) = clid {
+                let clid = v.clone();
+                if !clid.is_empty() {
+                    name = format!("{}_{}", tpid, clid);
+                }
+            }
+            if items.contains(&name) {
+                continue;
+            }
+            if !cloth_list.contains_key(&tpid) {
+                println!("{} not found in clothes list", &tpid);
+                return Ok(())
+            }
+            let to_buy = cloth_list.get(&tpid).unwrap();
+            gold = gold + to_buy.gold;
+            silver = silver + to_buy.silver;
+            rating = rating + to_buy.rating;
+            to_add.push(name);
+        }
+        let have_gold: i32 = con.get(format!("uid:{}:gld", &client.uid))?;
+        let have_silver: i32 = con.get(format!("uid:{}:slvr", &client.uid))?;
+        if gold > have_gold || silver > have_silver {
             return Ok(())
         }
-        let _: () = con.set(format!("uid:{}:wearing", &client.uid), &collection)?;
-        let _: () = con.incr(format!("uid:{}:gld", &client.uid), -to_buy.gold)?;
-        let _: () = con.incr(format!("uid:{}:slvr", &client.uid), -to_buy.silver)?;
-        inventory::add_item(&client.redis, &client.uid, &to_buy.name, "cls", 1)?;
-        inventory::set_wearing(&client.redis, &client.uid, &to_buy.name, true)?;
+        let _: () = con.set(format!("uid:{}:wearing", &client.uid), collection)?;
+        let _: () = con.incr(format!("uid:{}:gld", &client.uid), -gold)?;
+        let _: () = con.incr(format!("uid:{}:slvr", &client.uid), -silver)?;
+        let _: () = con.incr(format!("uid:{}:crt", &client.uid), rating)?;
+        for name in &to_add {
+            inventory::add_item(&client.redis, &client.uid, &name, "cls", 1)?;
+            inventory::set_wearing(&client.redis, &client.uid, &name, true)?;
+        }
         let res = get_res(&client.uid, &client.redis)?;
         let inv = inventory::get(&client.uid, &client.redis)?;
         let clths = inventory::get_clths(&client.uid, &client.redis)?;
@@ -211,7 +251,7 @@ impl Avatar {
         out_data.insert("ccltn".to_owned(), Value::Object(ccltn));
         out_data.insert("crt".to_owned(), Value::I32(crt));
         let mut v = Vec::new();
-        v.push(Value::String("a.clths.buy".to_owned()));
+        v.push(Value::String(format!("a.clths.{}", command)));
         v.push(Value::Object(out_data));
         client.send(&v, 34)?;
         Ok(())
