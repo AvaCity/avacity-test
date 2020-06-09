@@ -7,17 +7,18 @@ use crate::client::Client;
 use crate::common::Value;
 use crate::modules::{Base, get_city_info, house, notify};
 
+lazy_static! {
+    static ref ITEMS: HashMap<String, parser::Item> = parser::parse_furniture();
+}
+
 pub struct Furniture {
     pub prefix: &'static str,
-    items: HashMap<String, parser::Item>
 }
 
 impl Furniture {
     pub fn new() -> Furniture {
-        let items = parser::parse_furniture();
         Furniture {
             prefix: "frn",
-            items: items
         }
     }
 
@@ -54,22 +55,22 @@ impl Furniture {
         let mut con = client.redis.get_connection()?;
         let tpid = item.get("tpid").ok_or("err")?.get_string()?;
         let oid = item.get("oid").ok_or("err")?.get_i32()?;
-        if !self.items.contains_key(&tpid) {
+        if !ITEMS.contains_key(&tpid) {
             return Ok(())
         }
         if !inventory::take_item(&client.redis, &client.uid, &tpid, 1)? {
             return Ok(())
         }
-        let item_object = self.items.get(&tpid).unwrap();
+        let item_object = ITEMS.get(&tpid).unwrap();
         let items: Vec<String> = con.smembers(format!("rooms:{}:{}:items", &client.uid, room)).unwrap_or(Vec::new());
         let mut removed_items = HashSet::new();
         for name in &items {
             let splitted: Vec<&str> = name.split("_").collect();
             let tpid_tmp = splitted[0];
-            if !self.items.contains_key(tpid_tmp) {
+            if !ITEMS.contains_key(tpid_tmp) {
                 continue;
             }
-            let item_tmp = self.items.get(tpid_tmp).unwrap();
+            let item_tmp = ITEMS.get(tpid_tmp).unwrap();
             if item_object.category == item_tmp.category {
                 if removed_items.contains(tpid_tmp) {
                     continue;
@@ -197,10 +198,10 @@ impl Furniture {
         let data = msg[2].get_object()?;
         let item = data.get("tpid").ok_or("err")?.get_string()?;
         let count = data.get("cnt").ok_or("err")?.get_i32()?;
-        if !self.items.contains_key(&item) {
+        if !ITEMS.contains_key(&item) {
             return Ok(())
         }
-        let to_buy = self.items.get(&item).unwrap();
+        let to_buy = ITEMS.get(&item).unwrap();
         let mut con = client.redis.get_connection()?;
         let gold: i32 = con.get(format!("uid:{}:gld", &client.uid))?;
         let silver: i32 = con.get(format!("uid:{}:slvr", &client.uid))?;
