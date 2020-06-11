@@ -128,7 +128,7 @@ impl Avatar {
                 let collection = data.get("ctp").ok_or("err")?.get_string()?;
                 self.buy_clothes(client, &clothes, &collection, command)?;
             },
-            "bcc" => {
+            "bcc" | "bac" => { // buy colored clothes, buy another avatar clothes
                 let data = msg[2].get_object()?;
                 let clothes = data.get("clths").ok_or("err")?.get_vector()?;
                 let collection = data.get("ctp").ok_or("err")?.get_string()?;
