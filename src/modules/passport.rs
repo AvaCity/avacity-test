@@ -22,7 +22,9 @@ impl Passport {
         }
     }
 
-    fn passport(&self, client: &Client, _msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+    fn passport(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+        let data = msg[2].get_object()?;
+        let uid = data.get("uid").ok_or("err")?.get_string()?;
         let mut ach = HashMap::new();
         let mut tr = HashMap::new();
         for trophy in TROPHIES.iter() {
@@ -35,9 +37,15 @@ impl Passport {
         ach.insert("ac".to_owned(), Value::Object(HashMap::new()));
         ach.insert("tr".to_owned(), Value::Object(tr));
         let mut psp = HashMap::new();
-        psp.insert("uid".to_owned(), Value::String(client.uid.clone()));
+        psp.insert("uid".to_owned(), Value::String(uid));
         psp.insert("rel".to_owned(), Value::Object(HashMap::new()));
         psp.insert("ach".to_owned(), Value::Object(ach));
+        let mut out_data = HashMap::new();
+        out_data.insert("psp".to_owned(), Value::Object(psp));
+        let mut v = Vec::new();
+        v.push(Value::String("psp.psp".to_owned()));
+        v.push(Value::Object(out_data));
+        client.send(&v, 34)?;
         Ok(())
     }
 
