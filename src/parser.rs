@@ -71,5 +71,20 @@ pub fn parse_furniture() -> HashMap<String, Item> {
         }
     }
     return out;
+}
 
+pub fn parse_trophies() -> Vec<String> {
+    let mut file = File::open("config/modules/trophies.xml").expect("Can't open trophies file");
+    let mut xml = String::new();
+    file.read_to_string(&mut xml).expect("Can't read trophies file");
+    let mut out = Vec::new();
+    let doc = roxmltree::Document::parse(&xml).expect("Can't parse trophies xml");
+    for elem in doc.root_element().children() {
+        if !elem.is_element() {
+            continue;
+        }
+        println!("{}", elem.tag_name().name());
+        out.push(elem.attribute("id").unwrap().to_string());
+    }
+    return out;
 }

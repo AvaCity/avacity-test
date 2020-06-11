@@ -43,6 +43,8 @@ impl Server {
         lock.insert(module.prefix.to_owned(), Box::new(module));
         let module = modules::furniture::Furniture::new();
         lock.insert(module.prefix.to_owned(), Box::new(module));
+        let module = modules::passport::Passport::new();
+        lock.insert(module.prefix.to_owned(), Box::new(module));
         drop(lock);
         Server {
             modules,

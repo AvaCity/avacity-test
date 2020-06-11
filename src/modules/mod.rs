@@ -20,6 +20,7 @@ pub mod component;
 pub mod descriptor;
 pub mod campaign;
 pub mod furniture;
+pub mod passport;
 
 pub trait Base: Send+Sync {
     fn handle(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>>;
@@ -118,6 +119,7 @@ pub fn get_city_info(uid: &str, redis: &redis::Client) -> Result<HashMap<String,
     let crt: i32 = con.get(format!("uid:{}:crt", uid)).unwrap_or(0);
     let hrt: i32 = con.get(format!("uid:{}:hrt", uid)).unwrap_or(0);
     let lvt: i32 = con.get(format!("uid:{}:lvt", uid)).unwrap_or(0);
+    let trid: Option<String> = con.get(format!("uid:{}:trid", uid))?;
     ci.insert("exp".to_owned(), Value::I32(exp));                  // exp
     ci.insert("crt".to_owned(), Value::I32(crt));                  // clothes rating
     ci.insert("hrt".to_owned(), Value::I32(hrt));                  // house rating
@@ -157,7 +159,10 @@ pub fn get_city_info(uid: &str, redis: &redis::Client) -> Result<HashMap<String,
     ci.insert("skid".to_owned(), Value::None);                     // skate type id
     ci.insert("skrt".to_owned(), Value::I32(0));                   // finish skate rent time
     ci.insert("bcld".to_owned(), Value::I32(0));                   // baby cooldown
-    ci.insert("trid".to_owned(), Value::None);                     // trophy type id
+    match trid {                                                   // trophy type id
+        Some(v) => ci.insert("trid".to_owned(), Value::String(v.clone())),
+        None => ci.insert("trid".to_owned(), Value::None)
+    };
     ci.insert("trcd".to_owned(), Value::I32(0));                   // trophy cooldown
     ci.insert("sbid".to_owned(), Value::None);                     // snowboard type id
     ci.insert("sbrt".to_owned(), Value::I32(0));                   // snowboard finish rent time

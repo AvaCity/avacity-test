@@ -4,7 +4,7 @@ use redis::Commands;
 use crate::client::Client;
 use crate::common::Value;
 use crate::inventory;
-use crate::modules::{Base, get_plr, notify, location, campaign, send_to};
+use crate::modules::{Base, get_plr, notify, location, campaign, send_to, passport::TROPHIES};
 
 pub struct House {
     pub prefix: &'static str,
@@ -77,10 +77,8 @@ impl House {
                 plr.insert("hs".to_owned(), Value::Object(hs));
                 plr.insert("inv".to_owned(), Value::Object(inventory::get(&client.uid, &client.redis)?));
                 plr.insert("cs".to_owned(), Value::Object(inventory::get_all_collections(&client.uid, &client.redis)?));
-                /*let modules = client.modules.read().unwrap();
-                let module: &Box<passport::Passport> = modules.get("psp").unwrap();
                 let mut tr = HashMap::new();
-                for trophy in &module.trophies {
+                for trophy in TROPHIES.iter() {
                     let mut item = HashMap::new();
                     item.insert("trrt".to_owned(), Value::I32(0));
                     item.insert("trcd".to_owned(), Value::I32(0));
@@ -90,7 +88,7 @@ impl House {
                 let mut achc = HashMap::new();
                 achc.insert("ac".to_owned(), Value::Object(HashMap::new()));
                 achc.insert("tr".to_owned(), Value::Object(tr));
-                plr.insert("achc".to_owned(), Value::Object(achc));*/
+                plr.insert("achc".to_owned(), Value::Object(achc));
                 out_data.insert("plr".to_owned(), Value::Object(plr));
                 out_data.insert("tm".to_owned(), Value::I32(1));
             }
