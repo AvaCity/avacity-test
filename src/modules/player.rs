@@ -23,7 +23,11 @@ impl Player {
         let player_data = client.player_data.read().unwrap();
         for tmp in uids {
             let uid = tmp.get_string()?;
-            players.push(Value::Object(get_plr(&uid, &player_data, &client.redis)?.ok_or("err")?));
+            let plr = get_plr(&uid, &player_data, &client.redis)?;
+            match plr {
+                Some(v) => players.push(Value::Object(v)),
+                None => continue
+            };
         }
         let mut out_data = HashMap::new();
         out_data.insert("plrs".to_owned(), Value::Vector(players));
