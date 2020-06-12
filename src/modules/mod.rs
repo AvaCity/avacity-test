@@ -21,6 +21,7 @@ pub mod descriptor;
 pub mod campaign;
 pub mod furniture;
 pub mod passport;
+pub mod player;
 
 pub trait Base: Send+Sync {
     fn handle(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>>;
