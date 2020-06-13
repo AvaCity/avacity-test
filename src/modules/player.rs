@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::error::Error;
-use crate::modules::{Base, get_plr};
+use crate::modules::{Base, get_location, get_plr};
 use crate::common::Value;
 use crate::client::Client;
 
@@ -38,6 +38,30 @@ impl Player {
         client.send(&v, 34)?;
         Ok(())
     }
+
+    fn follow(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
+        let data = msg[2].get_object()?;
+        let uid = data.get("uid").ok_or("err")?.get_string()?;
+        let player_data = client.player_data.read().unwrap();
+        let locinfo = get_location(&uid, &player_data);
+        let scs: &str;
+        match locinfo {
+            Value::Object(_) => {
+                scs = "success";
+            },
+            _ => {
+                scs = "userOffline";
+            }
+        }
+        let mut out_data = HashMap::new();
+        out_data.insert("scs".to_owned(), Value::String(scs.to_owned()));
+        out_data.insert("locinfo".to_owned(), locinfo);
+        let mut v = Vec::new();
+        v.push(Value::String("pl.flw".to_owned()));
+        v.push(Value::Object(out_data));
+        client.send(&v, 34)?;
+        Ok(())
+    }
 }
 
 impl Base for Player {
@@ -47,6 +71,7 @@ impl Base for Player {
         let command = splitted[1];
         match command {
             "gid" => self.players_by_id(client, msg)?,
+            "flw" => self.follow(client, msg)?,
             _ => println!("Command {} not found", tmp)
         }
         Ok(())

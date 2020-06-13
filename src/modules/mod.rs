@@ -80,20 +80,7 @@ pub fn get_plr(uid: &str, player_data: &HashMap<String, PlayerData>,
     plr.insert("uid".to_owned(), Value::String(uid.to_owned()));
     plr.insert("apprnc".to_owned(), Value::Object(apprnc));
     plr.insert("clths".to_owned(), Value::Object(inventory::get_clths(uid, redis)?));
-    if player_data.contains_key(uid){
-        let player = player_data.get(uid).unwrap();
-        let mut locinfo = HashMap::new();
-        locinfo.insert("x".to_owned(), Value::F64(player.position[0].clone()));
-        locinfo.insert("y".to_owned(), Value::F64(player.position[1].clone()));
-        locinfo.insert("d".to_owned(), Value::I32(player.direction.clone()));
-        locinfo.insert("st".to_owned(), Value::I32(player.state.clone()));
-        locinfo.insert("at".to_owned(), Value::String(player.action_tag.clone()));
-        locinfo.insert("l".to_owned(), Value::String(player.room.clone()));
-        locinfo.insert("pl".to_owned(), Value::String("".to_owned()));
-        locinfo.insert("s".to_owned(), Value::String("127.0.0.1".to_owned()));
-        locinfo.insert("shlc".to_owned(), Value::Boolean(true));
-        plr.insert("locinfo".to_owned(), Value::Object(locinfo));
-    }
+    plr.insert("locinfo".to_owned(), get_location(uid, player_data));
     let role: i32 = con.get(format!("uid:{}:role", uid)).unwrap_or(0);
     let mut usrinf = HashMap::new();
     usrinf.insert("rl".to_owned(), Value::I32(role));
@@ -174,6 +161,29 @@ pub fn get_city_info(uid: &str, redis: &redis::Client) -> Result<HashMap<String,
     ci.insert("pamns".to_owned(), Value::Object(pamns));           // personal animations
     return Ok(ci);
 }
+
+pub fn get_location(uid: &str, player_data: &HashMap<String, PlayerData>) -> Value {
+    let player = player_data.get(uid);
+    match player {
+        Some(v) => {
+            let mut locinfo = HashMap::new();
+            locinfo.insert("x".to_owned(), Value::F64(v.position[0].clone()));
+            locinfo.insert("y".to_owned(), Value::F64(v.position[1].clone()));
+            locinfo.insert("d".to_owned(), Value::I32(v.direction.clone()));
+            locinfo.insert("st".to_owned(), Value::I32(v.state.clone()));
+            locinfo.insert("at".to_owned(), Value::String(v.action_tag.clone()));
+            locinfo.insert("l".to_owned(), Value::String(v.room.clone()));
+            locinfo.insert("pl".to_owned(), Value::String("".to_owned()));
+            locinfo.insert("s".to_owned(), Value::String("127.0.0.1".to_owned()));
+            locinfo.insert("shlc".to_owned(), Value::Boolean(true));
+            return Value::Object(locinfo);
+        },
+        None => {
+            return Value::None
+        }
+    }
+}
+
 
 // костыль
 pub fn send_to(stream: &Arc<Mutex<TcpStream>>, msg: &Vec<Value>, type_: u8) -> Result<(), Box<dyn Error>> {
