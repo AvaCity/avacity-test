@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use crate::client::Client;
 use crate::common::Value;
-use crate::modules::{notify, Base};
+use crate::modules::{notify, Base, location::refresh_avatar};
 use crate::inventory;
 use crate::parser;
 use redis::Commands;
@@ -65,6 +65,8 @@ impl ChatDecor {
         v.push(Value::String("chtdc.schtm".to_owned()));
         v.push(Value::Object(HashMap::new()));
         client.send(&v, 34)?;
+        let player_data = client.player_data.read().unwrap();
+        refresh_avatar(&client.uid, &player_data, &client.redis)?;
         Ok(())
     }
 

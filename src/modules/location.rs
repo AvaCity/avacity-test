@@ -75,8 +75,7 @@ pub fn room(client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
     match command {
         "ra" => {
             let player_data = client.player_data.read().unwrap();
-            refresh_avatar(&client.uid, msg[0].get_string()?.as_str(),
-                           &player_data, &client.redis)?
+            refresh_avatar(&client.uid, &player_data, &client.redis)?
         },
         "u" => update_state(client, msg)?,
         "m" => action(client, msg)?,
@@ -85,9 +84,10 @@ pub fn room(client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn refresh_avatar(uid: &str, room: &str, player_data: &HashMap<String, PlayerData>,
-                  redis: &redis::Client) -> Result<(), Box<dyn Error>> {
-    let prefix = get_prefix(room);
+pub fn refresh_avatar(uid: &str, player_data: &HashMap<String, PlayerData>,
+                      redis: &redis::Client) -> Result<(), Box<dyn Error>> {
+    let current_player = player_data.get(uid).ok_or("Can't refresh avatar")?;
+    let prefix = get_prefix(&current_player.room);
     let plr = get_plr(&uid, &player_data, &redis)?.ok_or("err")?;
     let mut v = Vec::new();
     v.push(Value::String(format!("{}.r.ra", prefix)));
@@ -96,7 +96,7 @@ fn refresh_avatar(uid: &str, room: &str, player_data: &HashMap<String, PlayerDat
     v.push(Value::Object(data));
     for player_uid in player_data.keys() {
         let player = player_data.get(&player_uid.clone()).ok_or("player not found")?;
-        if &player.room == room {
+        if player.room == current_player.room {
             send_to(&player.stream, &v, 34)?;
         }
     }
