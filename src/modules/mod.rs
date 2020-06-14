@@ -22,6 +22,7 @@ pub mod campaign;
 pub mod furniture;
 pub mod passport;
 pub mod player;
+pub mod chat_decor;
 
 pub trait Base: Send+Sync {
     fn handle(&self, client: &Client, msg: &Vec<Value>) -> Result<(), Box<dyn Error>>;
@@ -81,6 +82,7 @@ pub fn get_plr(uid: &str, player_data: &HashMap<String, PlayerData>,
     plr.insert("apprnc".to_owned(), Value::Object(apprnc));
     plr.insert("clths".to_owned(), Value::Object(inventory::get_clths(uid, redis)?));
     plr.insert("locinfo".to_owned(), get_location(uid, player_data));
+    plr.insert("chtdcm".to_owned(), get_chat_decor(uid, redis)?);
     let role: i32 = con.get(format!("uid:{}:role", uid)).unwrap_or(0);
     let mut usrinf = HashMap::new();
     usrinf.insert("rl".to_owned(), Value::I32(role));
@@ -184,6 +186,22 @@ pub fn get_location(uid: &str, player_data: &HashMap<String, PlayerData>) -> Val
     }
 }
 
+pub fn get_chat_decor(uid: &str, redis: &redis::Client) -> Result<Value, Box<dyn Error>> {
+    let mut con = redis.get_connection()?;
+    let bubble: Option<String> = con.get(format!("uid:{}:bubble", uid))?;
+    let text_color: Option<String> = con.get(format!("uid:{}:text_color", uid))?;
+    let mut chtdc = HashMap::new();
+    match bubble {
+        Some(v) => chtdc.insert("bdc".to_owned(), Value::String(v)),
+        None => chtdc.insert("bdc".to_owned(), Value::None),
+    };
+    match text_color {
+        Some(v) => chtdc.insert("tcl".to_owned(), Value::String(v)),
+        None => chtdc.insert("tcl".to_owned(), Value::None),
+    };
+    chtdc.insert("spks".to_owned(), Value::None);
+    return Ok(Value::Object(chtdc))
+}
 
 // костыль
 pub fn send_to(stream: &Arc<Mutex<TcpStream>>, msg: &Vec<Value>, type_: u8) -> Result<(), Box<dyn Error>> {

@@ -212,17 +212,7 @@ impl Furniture {
         let _: () = con.incr(format!("uid:{}:slvr", &client.uid), -to_buy.silver*count)?;
         inventory::add_item(&client.redis, &client.uid, &to_buy.name, "frn", count)?;
         notify::update_resources(client)?;
-        let final_count = inventory::get_item(&client.redis, &client.uid, &item)?.unwrap();
-        let mut it = HashMap::new();
-        it.insert("c".to_owned(), Value::I32(final_count));
-        it.insert("lid".to_owned(), Value::String("".to_owned()));
-        it.insert("tid".to_owned(), Value::String(item));
-        let mut out_data = HashMap::new();
-        out_data.insert("it".to_owned(), Value::Object(it));
-        let mut v = Vec::new();
-        v.push(Value::String("ntf.inv".to_owned()));
-        v.push(Value::Object(out_data));
-        client.send(&v, 34)?;
+        notify::update_item(client, &to_buy.name)?;
         Ok(())
     }
 

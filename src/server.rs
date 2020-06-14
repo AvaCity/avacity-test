@@ -47,6 +47,8 @@ impl Server {
         lock.insert(module.prefix.to_owned(), Box::new(module));
         let module = modules::player::Player::new();
         lock.insert(module.prefix.to_owned(), Box::new(module));
+        let module = modules::chat_decor::ChatDecor::new();
+        lock.insert(module.prefix.to_owned(), Box::new(module));
         drop(lock);
         Server {
             modules,

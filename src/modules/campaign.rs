@@ -4,7 +4,7 @@ use crate::client::Client;
 use crate::common::Value;
 
 const PROFESSIONS: bool = true;
-const CHAT_DECOR: bool = false;
+const CHAT_DECOR: bool = true;
 
 pub fn new(client: &Client) -> Result<(), Box<dyn Error>> {
     let mut campaigns = Vec::new();

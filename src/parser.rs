@@ -88,3 +88,15 @@ pub fn parse_trophies() -> Vec<String> {
     }
     return out;
 }
+
+pub fn parse_game_items() -> HashMap<String, Item> {
+    let mut out = HashMap::new();
+    let mut file = File::open("config/inventory/game.xml").expect("Can't open game.xml");
+    let mut xml = String::new();
+    file.read_to_string(&mut xml).expect("Can't read game.xml");
+    let doc = roxmltree::Document::parse(&xml).expect("Can't parse game.xml");
+    for elem in doc.root_element().children() {
+        parse_category(elem, &mut out);
+    }
+    return out;
+}
