@@ -83,7 +83,6 @@ pub fn parse_trophies() -> Vec<String> {
         if !elem.is_element() {
             continue;
         }
-        println!("{}", elem.tag_name().name());
         out.push(elem.attribute("id").unwrap().to_string());
     }
     return out;
