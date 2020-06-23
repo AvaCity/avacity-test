@@ -37,7 +37,11 @@ impl Client {
         let mut buffer = [0 as u8; 1024];
         loop {
             let mut read_lock = self.stream.lock().unwrap();
-            let size = read_lock.read(&mut buffer).unwrap();
+            let size: usize;
+            match read_lock.read(&mut buffer) {
+                Ok(v) => size = v,
+                Err(_) => break
+            }
             drop(read_lock);
             let hex_string = hex::encode(&buffer[..size]);
             if size == 0 {

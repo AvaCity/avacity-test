@@ -230,6 +230,6 @@ pub fn send_to(stream: &Arc<Mutex<TcpStream>>, msg: &Vec<Value>, type_: u8) -> R
     buf.put_u32(checksum);
     buf.extend(&data[..]);
     let mut lock = stream.lock().unwrap();
-    lock.write(&buf[..])?;
+    lock.write(&buf[..]).ok();
     Ok(())
 }
