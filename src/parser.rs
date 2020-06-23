@@ -100,3 +100,20 @@ pub fn parse_game_items() -> HashMap<String, Item> {
     }
     return out;
 }
+
+pub fn parse_conflicts() -> Vec<[String; 2]> {
+    let mut out = Vec::new();
+    let mut file = File::open("config/inventory/extend/clothesRules.xml").expect("Can't open clothes rules");
+    let mut xml = String::new();
+    file.read_to_string(&mut xml).expect("Can't read clothes rules");
+    let doc = roxmltree::Document::parse(&xml).expect("Can't parse clothes rules");
+    for rule in doc.root_element().children() {
+        if !rule.is_element() {
+            continue;
+        }
+        let category1 = rule.attribute("category1").unwrap();
+        let category2 = rule.attribute("category2").unwrap();
+        out.push([category1.to_string(), category2.to_string()]);
+    }
+    return out;
+}

@@ -203,6 +203,16 @@ pub fn get_chat_decor(uid: &str, redis: &redis::Client) -> Result<Value, Box<dyn
     return Ok(Value::Object(chtdc))
 }
 
+pub fn get_gender(uid: &str, redis: &redis::Client) -> Result<&'static str, Box<dyn Error>> {
+    let mut con = redis.get_connection()?;
+    let gender: i32 = con.lindex(format!("uid:{}:appearance", uid), 2)?;
+    match gender {
+        1 => Ok("boy"),
+        2 => Ok("girl"),
+        _ => Err(Box::from("wrong gender"))
+    }
+}
+
 // костыль
 pub fn send_to(stream: &Arc<Mutex<TcpStream>>, msg: &Vec<Value>, type_: u8) -> Result<(), Box<dyn Error>> {
     println!("send - {:?}", msg);

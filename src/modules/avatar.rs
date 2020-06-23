@@ -5,12 +5,12 @@ use crate::common::Value;
 use crate::client::Client;
 use crate::inventory;
 use crate::parser;
-use crate::modules::{Base, get_appearance, notify::get_res};
+use crate::modules::{Base, get_appearance, get_gender, notify::get_res};
 
 const COLLECTIONS: &'static [&'static str] = &["casual", "club", "official", "swimwear", "underdress"];
 
 lazy_static! {
-    static ref CLOTHES: HashMap<String, HashMap<String, parser::Item>> = parser::parse_all_clothes();
+    pub static ref CLOTHES: HashMap<String, HashMap<String, parser::Item>> = parser::parse_all_clothes();
 }
 
 
@@ -189,7 +189,7 @@ impl Avatar {
     }
 
     fn buy_clothes(&self, client: &Client, clothes: &Vec<Value>, collection: &str, command: &str) -> Result<(), Box<dyn Error>> {
-        let cloth_list = match client.get_gender()? {
+        let cloth_list = match get_gender(&client.uid, &client.redis)? {
             "boy" => CLOTHES.get("boy").unwrap(),
             "girl" => CLOTHES.get("girl").unwrap(),
             _ => return Err(Box::from("Gender not found"))

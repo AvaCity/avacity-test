@@ -2,6 +2,12 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use redis::Commands;
 use crate::common::Value;
+use crate::modules::{get_gender, avatar};
+use crate::parser;
+
+lazy_static! {
+    static ref CONFLICTS: Vec<[String; 2]> = parser::parse_conflicts();
+}
 
 pub fn set_wearing(redis: &redis::Client, uid: &str, item: &str, wearing: bool) -> Result<(), Box<dyn Error>> {
     let mut con = redis.get_connection()?;
@@ -10,12 +16,49 @@ pub fn set_wearing(redis: &redis::Client, uid: &str, item: &str, wearing: bool) 
     }
     let collection: String = con.get(format!("uid:{}:wearing", uid))?;
     if wearing {
+        check_conflicts(redis, uid, item)?;
         let _: () = con.sadd(format!("uid:{}:{}", uid, collection), item)?;
     }
     else {
         let _: () = con.srem(format!("uid:{}:{}", uid, collection), item)?;
     }
     Ok(())
+}
+
+fn check_conflicts(redis: &redis::Client, uid: &str, item: &str) -> Result<(), Box<dyn Error>> {
+    let cloth_list = match get_gender(uid, redis)? {
+        "boy" => avatar::CLOTHES.get("boy").unwrap(),
+        "girl" => avatar::CLOTHES.get("girl").unwrap(),
+        _ => return Err(Box::from("Gender not found"))
+    };
+    let mut con = redis.get_connection()?;
+    let tmp: Vec<&str> = item.split("_").collect();
+    let cloth = cloth_list.get(tmp[0]).ok_or("err")?;
+    let collection: String = con.get(format!("uid:{}:wearing", uid))?;
+    let clothes: HashSet<String> = con.smembers(format!("uid:{}:{}", uid, collection))?;
+    for weared in clothes {
+        let tmp2: Vec<&str> = weared.split("_").collect();
+        let weared_cloth = cloth_list.get(tmp2[0]).ok_or("err")?;
+        if has_confict(cloth, weared_cloth) {
+            let _: () = con.srem(format!("uid:{}:{}", uid, collection), weared)?;
+        }
+    }
+    Ok(())
+}
+
+fn has_confict(cloth1: &parser::Item, cloth2: &parser::Item) -> bool {
+    if cloth1.category == cloth2.category {
+        return true
+    }
+    for conflict in CONFLICTS.iter() {
+        if conflict[0] == cloth1.category && conflict[1] == cloth2.category {
+            return true
+        }
+        else if conflict[1] == cloth1.category && conflict[0] == cloth2.category {
+            return true
+        }
+    }
+    return false
 }
 
 pub fn add_item(redis: &redis::Client, uid: &str, item: &str, type_: &str, count: i32) -> Result<(), Box<dyn Error>> {
