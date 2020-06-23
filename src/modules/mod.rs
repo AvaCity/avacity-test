@@ -98,11 +98,11 @@ pub fn get_plr(uid: &str, player_data: &HashMap<String, PlayerData>,
     let mut pf = HashMap::new();
     pf.insert("pf".to_owned(), Value::Object(professions));
     plr.insert("pf".to_owned(), Value::Object(pf));
-    plr.insert("ci".to_owned(), Value::Object(get_city_info(uid, redis)?));
+    plr.insert("ci".to_owned(), get_city_info(uid, redis)?);
     return Ok(Some(plr));
 }
 
-pub fn get_city_info(uid: &str, redis: &redis::Client) -> Result<HashMap<String, Value>, Box<dyn Error>> {
+pub fn get_city_info(uid: &str, redis: &redis::Client) -> Result<Value, Box<dyn Error>> {
     let mut con = redis.get_connection()?;
     let mut ci = HashMap::new();
     let exp: i32 = con.get(format!("uid:{}:exp", uid)).unwrap_or(0);
@@ -161,7 +161,7 @@ pub fn get_city_info(uid: &str, redis: &redis::Client) -> Result<HashMap<String,
     pamns.insert("amn".to_owned(), Value::Vector(Vec::new()));
     pamns.insert("crst".to_owned(), Value::I32(0));
     ci.insert("pamns".to_owned(), Value::Object(pamns));           // personal animations
-    return Ok(ci);
+    return Ok(Value::Object(ci));
 }
 
 pub fn get_location(uid: &str, player_data: &HashMap<String, PlayerData>) -> Value {

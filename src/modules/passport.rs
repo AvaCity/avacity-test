@@ -3,7 +3,7 @@ use std::error::Error;
 use redis::Commands;
 use crate::client::Client;
 use crate::common::Value;
-use crate::modules::Base;
+use crate::modules::{Base, notify};
 use crate::parser;
 
 
@@ -67,6 +67,7 @@ impl Passport {
         v.push(Value::String("psp.sttrph".to_owned()));
         v.push(Value::Object(data));
         client.send(&v, 34)?;
+        notify::update_city_info(client)?;
         Ok(())
     }
 }

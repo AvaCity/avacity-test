@@ -3,7 +3,7 @@ use std::error::Error;
 use redis::Commands;
 use crate::client::Client;
 use crate::common::Value;
-use crate::modules::get_chat_decor;
+use crate::modules::{get_chat_decor, get_city_info};
 use crate::inventory;
 
 pub fn get_res(uid: &str, redis: &redis::Client) -> Result<HashMap<String, Value>, Box<dyn Error>> {
@@ -50,6 +50,16 @@ pub fn update_chat_decor(client: &Client) -> Result<(), Box<dyn Error>> {
     out_data.insert("chtdc".to_owned(), get_chat_decor(&client.uid, &client.redis)?);
     let mut v = Vec::new();
     v.push(Value::String("ntf.chtdcm".to_owned()));
+    v.push(Value::Object(out_data));
+    client.send(&v, 34)?;
+    Ok(())
+}
+
+pub fn update_city_info(client: &Client) -> Result<(), Box<dyn Error>> {
+    let mut out_data = HashMap::new();
+    out_data.insert("ci".to_owned(), get_city_info(&client.uid, &client.redis)?);
+    let mut v = Vec::new();
+    v.push(Value::String("ntf.ci".to_owned()));
     v.push(Value::Object(out_data));
     client.send(&v, 34)?;
     Ok(())

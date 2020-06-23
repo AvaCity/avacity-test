@@ -42,7 +42,7 @@ impl Furniture {
         }
         let mut out_data = HashMap::new();
         out_data.insert("inv".to_owned(), Value::Object(inventory::get(&client.uid, &client.redis)?));
-        out_data.insert("ci".to_owned(), Value::Object(get_city_info(&client.uid, &client.redis)?));
+        out_data.insert("ci".to_owned(), get_city_info(&client.uid, &client.redis)?);
         out_data.insert("hs".to_owned(), Value::Object(house::get_room(&client.uid, room, &client.redis)?));
         let mut v = Vec::new();
         v.push(Value::String("frn.save".to_owned()));
