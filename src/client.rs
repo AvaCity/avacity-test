@@ -90,10 +90,10 @@ impl Client {
                     }
                 }
                 else if self.uid == "0".to_owned() {
-                    break
+                    return Ok(())
                 }
                 else if type_ == 2 {
-                    break
+                    return Ok(())
                 }
                 else if type_ == 34 {
                     let tmp = msg[1].get_string()?;
