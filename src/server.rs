@@ -20,7 +20,7 @@ impl Server {
             let player_data = Arc::clone(&self.player_data);
             thread::spawn(move || {
                 let mut client = Client::new(stream.unwrap(), modules, player_data);
-                client.handle();
+                client.start();
             });
         }
     }

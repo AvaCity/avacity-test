@@ -33,28 +33,35 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn handle(&mut self) {
+    pub fn start(&mut self) {
+        match self.handle() {
+            Ok(()) => {},
+            Err(error) => println!("Critical client error: {}", error)
+        }
+        println!("drop connection");
+        let lock = self.stream.lock().unwrap();
+        lock.shutdown(Shutdown::Both).ok();
+        location::leave_room(self).ok();
+        let mut player_data = self.player_data.write().unwrap();
+        if player_data.contains_key(&self.uid) {
+            player_data.remove(&self.uid);
+        }
+    }
+    fn handle(&mut self) -> Result<(), Box<dyn Error>> {
         let mut buffer = [0 as u8; 1024];
         loop {
             let mut read_lock = self.stream.lock().unwrap();
-            let size: usize;
-            match read_lock.read(&mut buffer) {
-                Ok(v) => size = v,
-                Err(_) => break
-            }
+            let size = read_lock.read(&mut buffer)?;
             drop(read_lock);
             let hex_string = hex::encode(&buffer[..size]);
             if size == 0 {
-                let lock = self.stream.lock().unwrap();
-                lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
-                break;
+                break
             }
             if hex_string == "3c706f6c6963792d66696c652d726571756573742f3e00" {
                 let bytes = &[XML.as_bytes(), STRING_END].concat()[..];
                 let mut lock = self.stream.lock().unwrap();
-                lock.write(bytes).expect("Write failed");
-                lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
-                break;
+                lock.write(bytes)?;
+                break
             }
             let data = &buffer[..size];
             let mut cur = Cursor::new(data);
@@ -63,7 +70,7 @@ impl Client {
                 cur.read_exact(&mut tmp).unwrap();
                 let length = i32::from_be_bytes(tmp);
                 if data.len() as i32 - (cur.position() as i32) < length {
-                    break;
+                    break
                 }
                 let pos = cur.position() as usize;
                 let tmp_data = &data[pos..pos+(length as usize)];
@@ -73,8 +80,8 @@ impl Client {
                     Ok(value) => message = value,
                     Err(_) => break
                 }
-                let type_ = message.get("type").unwrap().get_u8().unwrap();
-                let msg = message.get("msg").unwrap().get_vector().unwrap();
+                let type_ = message.get("type").ok_or("err")?.get_u8()?;
+                let msg = message.get("msg").ok_or("err")?.get_vector()?;
                 println!("type - {}, msg - {:?}", type_, msg);
                 if type_ == 1 && self.uid == "0".to_owned() {
                     match self.auth(msg) {
@@ -83,46 +90,35 @@ impl Client {
                     }
                 }
                 else if self.uid == "0".to_owned() {
-                    let lock = self.stream.lock().unwrap();
-                    lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
-                    break;
+                    break
                 }
                 else if type_ == 2 {
-                    let lock = self.stream.lock().unwrap();
-                    lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
-                    break;
+                    break
                 }
                 else if type_ == 34 {
-                    let tmp = msg[1].get_string().unwrap();
+                    let tmp = msg[1].get_string()?;
                     let splitted: Vec<&str> = tmp.split(".").collect();
                     let module_name = splitted[0].to_owned();
                     let lock = self.modules.read().unwrap();
                     if !lock.contains_key(&module_name) {
                         println!("Command {} not found", tmp);
-                        continue;
+                        continue
                     }
                     let module = lock.get(&module_name).unwrap();
                     match module.handle(self, msg) {
                         Ok(()) => {},
-                        Err(error) => {
-                            println!("Error: {}", error);
-                        } 
+                        Err(error) => println!("Error: {}", error)
                     }
                 }
             }
             buffer = [0 as u8; 1024];
         }
-        println!("drop connection");
-        location::leave_room(self).ok();
-        let mut player_data = self.player_data.write().unwrap();
-        if player_data.contains_key(&self.uid) {
-            player_data.remove(&self.uid);
-        }
+        Ok(())
     }
 
     pub fn send(&self, msg: &Vec<Value>, type_: u8) -> Result<(), Box<dyn Error>> {
         println!("send - {:?}", msg);
-        let data = encoder::encode(msg, type_).unwrap();
+        let data = encoder::encode(msg, type_)?;
         let mut length = data.len() as i32 + 1;
         let mut mask = 0;
         let mut buf = BytesMut::new();
@@ -199,7 +195,7 @@ impl Client {
                 let msg = base_messages::wrong_pass();
                 self.send(&msg, 2)?;
                 let lock = self.stream.lock().unwrap();
-                lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
+                lock.shutdown(Shutdown::Both)?;
                 return Ok(())
             }
         }
