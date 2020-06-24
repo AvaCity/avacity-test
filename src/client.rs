@@ -12,7 +12,7 @@ use crate::decoder;
 use crate::encoder;
 use crate::base_messages;
 use crate::common::{PlayerData, Value};
-use crate::modules::{Base, location};
+use crate::modules::{Base, location, send_to};
 
 static XML: &'static str = "<?xml version=\"1.0\"?>
 <cross-domain-policy>
@@ -170,8 +170,13 @@ impl Client {
                 }
                 let mut player_data = self.player_data.write().unwrap();
                 if player_data.contains_key(&real_uid) {
+                    let player = player_data.get(&real_uid).unwrap();
+                    send_to(&player.stream, &base_messages::kick_join(), 3).ok(); // kick old player
+                    let lock = player.stream.lock().unwrap();
+                    lock.shutdown(Shutdown::Both).ok();
+                    self.send(&base_messages::already_joined(), 2).ok(); // say new player to reconnect
                     let lock = self.stream.lock().unwrap();
-                    lock.shutdown(Shutdown::Both).expect("Shutdown failed!");
+                    lock.shutdown(Shutdown::Both).ok();
                     return Ok(())
                 }
                 let lock = self.stream.lock().unwrap();
