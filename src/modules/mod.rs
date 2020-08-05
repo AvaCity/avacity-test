@@ -1,10 +1,12 @@
 use bytes::{BytesMut, BufMut};
 use crc::{crc32, Hasher32};
+use std::convert::TryInto;
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::{Mutex, Arc};
 use std::io::Write;
 use std::net::TcpStream;
+use std::time::SystemTime;
 use redis::Commands;
 use crate::encoder;
 use crate::client::Client;
@@ -110,6 +112,8 @@ pub fn get_city_info(uid: &str, redis: &redis::Client) -> Result<Value, Box<dyn 
     let hrt: i32 = con.get(format!("uid:{}:hrt", uid)).unwrap_or(0);
     let lvt: i32 = con.get(format!("uid:{}:lvt", uid)).unwrap_or(0);
     let trid: Option<String> = con.get(format!("uid:{}:trid", uid))?;
+    let time: i32 = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap().as_secs().try_into().unwrap();
     ci.insert("exp".to_owned(), Value::I32(exp));                  // exp
     ci.insert("crt".to_owned(), Value::I32(crt));                  // clothes rating
     ci.insert("hrt".to_owned(), Value::I32(hrt));                  // house rating
@@ -146,8 +150,8 @@ pub fn get_city_info(uid: &str, redis: &redis::Client) -> Result<Value, Box<dyn 
     ci.insert("lvt".to_owned(), Value::I32(lvt));                  // last visit time
     ci.insert("lrnt".to_owned(), Value::I32(0));                   // last rename time
     ci.insert("lwts".to_owned(), Value::I32(0));                   // last wedding event time
-    ci.insert("skid".to_owned(), Value::None);                     // skate type id
-    ci.insert("skrt".to_owned(), Value::I32(0));                   // finish skate rent time
+    ci.insert("skid".to_owned(), Value::String("iceRinkSkate1".to_owned())); // skate type id
+    ci.insert("skrt".to_owned(), Value::I32(time+10000));          // finish skate rent time
     ci.insert("bcld".to_owned(), Value::I32(0));                   // baby cooldown
     match trid {                                                   // trophy type id
         Some(v) => ci.insert("trid".to_owned(), Value::String(v.clone())),
